@@ -100,7 +100,7 @@ def transform_data(**context):
     return cleaned_data
 ```
 
-## 🐳 Docker Services
+## � Docker Services
 
 ### Airflow Components
 - **Webserver**: UI interface (port 8080)
@@ -117,7 +117,7 @@ def transform_data(**context):
   - `raw_data`: Raw JSON data for audit
   - `analytics`: Materialized views and reports
 
-## 📈 Monitoring and Troubleshooting
+## � Monitoring and Troubleshooting
 
 ### View Logs
 ```bash
