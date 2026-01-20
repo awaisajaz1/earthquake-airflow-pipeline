@@ -15,10 +15,9 @@ import requests
 from typing import Dict, List, Any
 
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from config.pipeline_config import EarthquakeConfig
 
 # Configure logging
-logging.basicConfig(level=getattr(logging, EarthquakeConfig.LOG_LEVEL))
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +25,8 @@ class EarthquakeETL:
     """Class containing all ETL operations for earthquake data"""
     
     def __init__(self):
-        self.config = EarthquakeConfig()
+        self.api_url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+        self.postgres_conn_id = 'earth_postgres'
     
     def extract_earthquake_data(self, **context) -> Dict[str, Any]:
         """
@@ -36,20 +36,22 @@ class EarthquakeETL:
         """
         logger.info("Starting earthquake data extraction...")
         
-        # Calculate time window
+        # Calculate time window - last 24 hours
         end_time = datetime.utcnow()
-        start_time = end_time - timedelta(days=self.config.TIME_WINDOW_DAYS)
+        start_time = end_time - timedelta(days=1)
         
-        # Get API parameters from config
-        params = self.config.get_api_params(start_time, end_time)
+        # API parameters
+        params = {
+            'format': 'geojson',
+            'starttime': start_time.strftime('%Y-%m-%dT%H:%M:%S'),
+            'endtime': end_time.strftime('%Y-%m-%dT%H:%M:%S'),
+            'minmagnitude': 2.5,
+            'limit': 1000
+        }
         
         try:
-            logger.info(f"Fetching data from {self.config.API_URL} with params: {params}")
-            response = requests.get(
-                self.config.API_URL, 
-                params=params, 
-                timeout=self.config.API_TIMEOUT
-            )
+            logger.info(f"Fetching data from {self.api_url} with params: {params}")
+            response = requests.get(self.api_url, params=params, timeout=30)
             response.raise_for_status()
             
             data = response.json()
@@ -67,7 +69,7 @@ class EarthquakeETL:
                 value={
                     'extraction_time': datetime.utcnow().isoformat(),
                     'record_count': earthquake_count,
-                    'api_endpoint': self.config.API_URL,
+                    'api_endpoint': self.api_url,
                     'time_range': f"{start_time.isoformat()} to {end_time.isoformat()}"
                 }
             )
@@ -114,8 +116,8 @@ class EarthquakeETL:
                 # Clean and validate data
                 record = self._create_earthquake_record(feature, properties, coordinates)
                 
-                # Data quality checks using config
-                if self._is_valid_record(record):
+                # Data quality checks
+                if record['id'] and record['magnitude'] is not None:
                     transformed_records.append(record)
                 else:
                     logger.warning(f"Skipping record with missing critical data: {record['id']}")
@@ -188,7 +190,7 @@ class EarthquakeETL:
                 value={
                     'records_loaded': len(cleaned_data),
                     'loading_time': datetime.utcnow().isoformat(),
-                    'table_name': self.config.MAIN_TABLE,
+                    'table_name': 'earthquake_data',
                     'database': 'earth'
                 }
             )
@@ -208,7 +210,7 @@ class EarthquakeETL:
         logger.info("Starting data validation and summarization...")
         
         # Get PostgreSQL connection to earth database
-        postgres_hook = PostgresHook(postgres_conn_id=self.config.POSTGRES_CONN_ID)
+        postgres_hook = PostgresHook(postgres_conn_id=self.postgres_conn_id)
         
         try:
             # Run validation queries
@@ -218,7 +220,7 @@ class EarthquakeETL:
             self._create_summary_record(postgres_hook, validation_results)
             
             # Refresh materialized view for analytics
-            postgres_hook.run(f"REFRESH MATERIALIZED VIEW {self.config.ANALYTICS_VIEW}")
+            postgres_hook.run("REFRESH MATERIALIZED VIEW analytics.daily_earthquake_stats")
             
             # Store validation results in XCom
             context['task_instance'].xcom_push(
@@ -274,10 +276,7 @@ class EarthquakeETL:
 
     def _is_valid_record(self, record: Dict) -> bool:
         """Check if record has required fields"""
-        for field in self.config.MIN_REQUIRED_FIELDS:
-            if not record.get(field):
-                return False
-        return True
+        return record.get('id') and record.get('magnitude') is not None
 
     def _clean_earthquake_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Clean and validate earthquake data"""
@@ -322,9 +321,14 @@ class EarthquakeETL:
         logger.info(f"Loading {len(cleaned_data)} records into PostgreSQL earth database...")
         
         postgres_hook.insert_rows(
-            table=self.config.MAIN_TABLE,
+            table='earthquake_data',
             rows=cleaned_data,
-            target_fields=self.config.get_database_fields(),
+            target_fields=[
+                'id', 'magnitude', 'place', 'time_occurred', 'updated_time', 'timezone',
+                'url', 'detail_url', 'felt', 'cdi', 'mmi', 'alert', 'status', 'tsunami',
+                'sig', 'net', 'code', 'ids', 'sources', 'types', 'nst', 'dmin', 'rms',
+                'gap', 'magnitude_type', 'type', 'title', 'longitude', 'latitude', 'depth'
+            ],
             replace=True
         )
 
@@ -337,31 +341,30 @@ class EarthquakeETL:
         
         if raw_data:
             postgres_hook.run(
-                f"INSERT INTO {self.config.RAW_TABLE} (raw_json) VALUES (%s)",
+                "INSERT INTO raw_data.earthquake_raw (raw_json) VALUES (%s)",
                 parameters=[json.dumps(raw_data)]
             )
 
     def _run_validation_queries(self, postgres_hook: PostgresHook) -> Dict:
         """Run validation queries and return results"""
         validation_queries = {
-            'total_records': f"SELECT COUNT(*) FROM {self.config.MAIN_TABLE}",
-            'recent_records': f"""
-                SELECT COUNT(*) FROM {self.config.MAIN_TABLE} 
+            'total_records': "SELECT COUNT(*) FROM earthquake_data",
+            'recent_records': """
+                SELECT COUNT(*) FROM earthquake_data 
                 WHERE created_at >= CURRENT_DATE
             """,
-            'magnitude_stats': f"""
+            'magnitude_stats': """
                 SELECT 
                     MIN(magnitude) as min_mag,
                     MAX(magnitude) as max_mag,
                     AVG(magnitude) as avg_mag,
                     COUNT(*) as total_count
-                FROM {self.config.MAIN_TABLE} 
+                FROM earthquake_data 
                 WHERE created_at >= CURRENT_DATE
             """,
-            'significant_earthquakes': f"""
-                SELECT COUNT(*) FROM {self.config.MAIN_TABLE} 
-                WHERE magnitude >= {self.config.SIGNIFICANT_MAGNITUDE_THRESHOLD} 
-                AND created_at >= CURRENT_DATE
+            'significant_earthquakes': """
+                SELECT COUNT(*) FROM earthquake_data 
+                WHERE magnitude >= 5.0 AND created_at >= CURRENT_DATE
             """
         }
         
