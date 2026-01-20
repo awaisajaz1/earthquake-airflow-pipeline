@@ -1,7 +1,7 @@
--- Connect to the earth database for earthquake data
-\c earth;
+-- Create earthquake data tables in the same database as Airflow
+-- This keeps everything simple - one database for both Airflow metadata and earthquake data
 
--- Create earthquake data table in earth database
+-- Create earthquake data table
 CREATE TABLE IF NOT EXISTS earthquake_data (
     id VARCHAR(50) PRIMARY KEY,
     magnitude DECIMAL(4,2),
@@ -54,44 +54,6 @@ CREATE TABLE IF NOT EXISTS earthquake_summary (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create a schema for raw data (optional - for data lake approach)
-CREATE SCHEMA IF NOT EXISTS raw_data;
-
--- Create raw earthquake data table (for backup/audit purposes)
-CREATE TABLE IF NOT EXISTS raw_data.earthquake_raw (
-    id SERIAL PRIMARY KEY,
-    raw_json JSONB,
-    extraction_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    processed BOOLEAN DEFAULT FALSE
-);
-
--- Create a schema for analytics and reporting
-CREATE SCHEMA IF NOT EXISTS analytics;
-
--- Create materialized view for quick analytics
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.daily_earthquake_stats AS
-SELECT 
-    DATE(time_occurred) as earthquake_date,
-    COUNT(*) as total_earthquakes,
-    AVG(magnitude) as avg_magnitude,
-    MAX(magnitude) as max_magnitude,
-    MIN(magnitude) as min_magnitude,
-    COUNT(CASE WHEN magnitude >= 5.0 THEN 1 END) as significant_earthquakes,
-    COUNT(CASE WHEN tsunami = 1 THEN 1 END) as tsunami_events
-FROM earthquake_data
-WHERE time_occurred IS NOT NULL
-GROUP BY DATE(time_occurred)
-ORDER BY earthquake_date DESC;
-
--- Create index on materialized view
-CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_stats_date ON analytics.daily_earthquake_stats(earthquake_date);
-
 -- Grant permissions to airflow user
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO airflow;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO airflow;
-GRANT ALL PRIVILEGES ON SCHEMA raw_data TO airflow;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA raw_data TO airflow;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA raw_data TO airflow;
-GRANT ALL PRIVILEGES ON SCHEMA analytics TO airflow;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA analytics TO airflow;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA analytics TO airflow;

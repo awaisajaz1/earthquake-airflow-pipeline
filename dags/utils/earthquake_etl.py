@@ -26,7 +26,7 @@ class EarthquakeETL:
     
     def __init__(self):
         self.api_url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
-        self.postgres_conn_id = 'earth_postgres'
+        self.postgres_conn_id = 'postgres_default'  # Use default Airflow connection
     
     def extract_earthquake_data(self, **context) -> Dict[str, Any]:
         """
@@ -179,9 +179,6 @@ class EarthquakeETL:
             # Load main earthquake data
             self._load_main_earthquake_data(postgres_hook, cleaned_data)
             
-            # Load raw data for audit purposes
-            self._load_raw_audit_data(postgres_hook, context)
-            
             logger.info(f"Successfully loaded {len(cleaned_data)} earthquake records")
             
             # Store loading summary in XCom
@@ -191,11 +188,11 @@ class EarthquakeETL:
                     'records_loaded': len(cleaned_data),
                     'loading_time': datetime.utcnow().isoformat(),
                     'table_name': 'earthquake_data',
-                    'database': 'earth'
+                    'database': 'airflow_db'
                 }
             )
             
-            return f"Loaded {len(cleaned_data)} earthquake records into PostgreSQL earth database"
+            return f"Loaded {len(cleaned_data)} earthquake records into PostgreSQL database"
             
         except Exception as e:
             logger.error(f"Error loading data into PostgreSQL: {str(e)}")
@@ -209,7 +206,7 @@ class EarthquakeETL:
         """
         logger.info("Starting data validation and summarization...")
         
-        # Get PostgreSQL connection to earth database
+        # Get PostgreSQL connection (same database as Airflow)
         postgres_hook = PostgresHook(postgres_conn_id=self.postgres_conn_id)
         
         try:
@@ -218,9 +215,6 @@ class EarthquakeETL:
             
             # Create summary record
             self._create_summary_record(postgres_hook, validation_results)
-            
-            # Refresh materialized view for analytics
-            postgres_hook.run("REFRESH MATERIALIZED VIEW analytics.daily_earthquake_stats")
             
             # Store validation results in XCom
             context['task_instance'].xcom_push(
@@ -318,7 +312,7 @@ class EarthquakeETL:
 
     def _load_main_earthquake_data(self, postgres_hook: PostgresHook, cleaned_data: List[Dict]):
         """Load main earthquake data into the database"""
-        logger.info(f"Loading {len(cleaned_data)} records into PostgreSQL earth database...")
+        logger.info(f"Loading {len(cleaned_data)} records into PostgreSQL database...")
         
         postgres_hook.insert_rows(
             table='earthquake_data',
@@ -333,17 +327,10 @@ class EarthquakeETL:
         )
 
     def _load_raw_audit_data(self, postgres_hook: PostgresHook, context: Dict):
-        """Load raw data for audit purposes"""
-        raw_data = context['task_instance'].xcom_pull(
-            key='raw_earthquake_data', 
-            task_ids='extract_earthquake_data'
-        )
-        
-        if raw_data:
-            postgres_hook.run(
-                "INSERT INTO raw_data.earthquake_raw (raw_json) VALUES (%s)",
-                parameters=[json.dumps(raw_data)]
-            )
+        """Load raw data for audit purposes - simplified version"""
+        # For simplicity, we're not storing raw JSON data
+        # You can add this back if needed for audit purposes
+        pass
 
     def _run_validation_queries(self, postgres_hook: PostgresHook) -> Dict:
         """Run validation queries and return results"""

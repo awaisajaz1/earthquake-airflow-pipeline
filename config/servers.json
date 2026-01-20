@@ -1,7 +1,7 @@
 {
     "Servers": {
         "1": {
-            "Name": "Airflow PostgreSQL",
+            "Name": "Airflow Database",
             "Group": "Servers",
             "Host": "postgres",
             "Port": 5432,
@@ -9,18 +9,7 @@
             "Username": "airflow",
             "Password": "airflow",
             "SSLMode": "prefer",
-            "Comment": "Airflow metadata database"
-        },
-        "2": {
-            "Name": "Earth Database",
-            "Group": "Servers",
-            "Host": "postgres",
-            "Port": 5432,
-            "MaintenanceDB": "earth",
-            "Username": "airflow",
-            "Password": "airflow",
-            "SSLMode": "prefer",
-            "Comment": "Earthquake data database"
+            "Comment": "Single database with Airflow metadata and earthquake data"
         }
     }
 }
