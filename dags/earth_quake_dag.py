@@ -1,28 +1,18 @@
 from airflow import DAG
 from datetime import datetime, timedelta
-from airflow.operators.dummy import DummyOperator
+from airflow.operators.empty import EmptyOperator
 
-
-
-
-default_args = {
-    'owner' : 'airflow',
-    'depends_on_past' : False,
-    'start_date' : datetime(2026, 1, 21),
-    'retries' : 1,
-    'retry_delay' : timedelta(minutes=5)
-}
-
-
+# Simple DAG definition
 dag = DAG(
-    'fetch_earth_quake_api_data',
-    default_args = default_args,
-    description = 'DAG for earth quakes api to store in postgres',
-    schedule_interval = timedelta(days=1)
+    dag_id='fetch_earth_quake_api_data',
+    start_date=datetime(2026, 1, 21),
+    schedule=timedelta(days=1),
+    description='DAG for earth quakes api to store in postgres',
+    catchup=False
 )
 
-# Add at least one task for the DAG to appear
-dummy_task = DummyOperator(
-    task_id='dummy_task',
+# Simple task
+start_task = EmptyOperator(
+    task_id='start',
     dag=dag
 )
