@@ -102,7 +102,6 @@ def insert_earthquake_data_to_postgres(ti):
 
 
 
-
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
