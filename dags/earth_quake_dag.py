@@ -11,8 +11,4 @@ dag = DAG(
     catchup=False
 )
 
-# Simple task
-start_task = EmptyOperator(
-    task_id='start',
-    dag=dag
-)
+
