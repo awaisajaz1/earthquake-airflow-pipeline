@@ -6,13 +6,13 @@ from airflow import DAG
 from datetime import datetime, timedelta
 import json
 import requests
-
+import uuid
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 
-# 1
-def fetch_earth_quake_data(ti):
+# 1 ingest in native format, Json
+def ingest_to_bronze():
     url = 'https://earthquake.usgs.gov/fdsnws/event/1/query'
     params = {
         "format": "geojson",
@@ -24,82 +24,56 @@ def fetch_earth_quake_data(ti):
 
     response = requests.get(url, params=params)
     response.raise_for_status()
+    batch_id = str(uuid.uuid4())
 
     # now convert the responce to json data type 
-    data = response.json()
+    raw_data = response.json()
 
-    # extract the features (earthquake events) from the geojson data
-    records = []
-    for feature in data['features']:
-        earthquake_id = feature['id']
-        # extract the properties and geometry from each feature
-        properties = feature['properties']
-        geometry = feature['geometry']
+    # save to postgres
+    pg_hook = PostgresHook(postgres_conn_id='earth_quake')
+    conn = pg_hook.get_conn()
+    conn.autocommit = True
 
-        # extract the relevant fields from properties
-        place = properties['place']
-        magnitude = properties['mag']
-        time = properties['time']
+    cursor = conn.cursor()
 
-        # extract the coordinates from geometry
-        coordinates = geometry['coordinates']
+    # ---- CREATE DATABASE ----
+    db_hook = PostgresHook(postgres_conn_id="earth_quake")
+    conn = db_hook.get_conn()
+    conn.autocommit = True
+    cursor = conn.cursor()
 
-        record = {
-            'id': earthquake_id,
-            'place': place,
-            'magnitude': magnitude,
-            'time': datetime.utcfromtimestamp(time/1000).strftime('%Y-%m-%d %H:%M:%S') if time else None,
-            'longitude': coordinates[0],
-            'latitude': coordinates[1],
-            'depth': coordinates[2]
-        }
+    try:
+        cursor.execute("""
+            SELECT 'CREATE DATABASE earth_quake_db'
+            WHERE NOT EXISTS (
+                SELECT FROM pg_database WHERE datname = 'earth_quake_db'
+            )
+        """)
+    except Exception as e:
+        print(f"Error creating database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+        
+    # ---- CREATE SCHEMA ----
+     # Create schema if not exists - this is safe inside transaction
+    create_schema_sql = "CREATE SCHEMA IF NOT EXISTS bronze;"
+    pg_hook.run(create_schema_sql)
 
-        records.append(record)
-
-        print("The Earth Quake data has been extracted!")
-
-    # df = pd.Dataframe(records)
-    ti.xcom_push(key='earth_quake_data', value=records)
-
-
-# 2 Insert data to postgres with minor cleansing
-def insert_earthquake_data_to_postgres(ti):
-    earthquake_data = ti.xcom_pull(key='earth_quake_data', task_ids='fetch_earth_quake_data')
-
-    if not earthquake_data:
-        raise ValueError("No earthquake data found")
-
-    postgres_hook = PostgresHook(postgres_conn_id='earth_quake')
-
-    create_table = """CREATE TABLE IF NOT EXISTS earth_quake_data (
-        id VARCHAR(255),
-        place VARCHAR(255),
-        magnitude FLOAT,
-        time TIMESTAMP,
-        longitude FLOAT,
-        latitude FLOAT,
-        depth FLOAT
-    );
+    # Create table if not exists
+    create_table_sql = """
+        CREATE TABLE IF NOT EXISTS bronze.bronze_earthquake_raw (
+            batch_id VARCHAR(255),
+            raw_payload JSONB,
+            ingestion_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """
-    # execute create script
-    postgres_hook.run(create_table)
-    
-    # insert records
-    insert_query = """
-            INSERT INTO earth_quake_data (id, place, magnitude, time, longitude, latitude, depth)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """
-    for row in earthquake_data:
-        postgres_hook.run(insert_query, parameters=(
-            row['id'],
-            row['place'],
-            row['magnitude'],
-            row['time'],
-            row['longitude'],
-            row['latitude'],
-            row['depth']
-        ))
+    pg_hook.run(create_table_sql)
 
+    # Insert data into table
+    insert_query = "INSERT INTO bronze.bronze_earthquake_raw (batch_id, raw_payload) VALUES (%s, %s)"
+    pg_hook.run(insert_query, parameters=(batch_id, json.dumps(raw_data)))
+    print(f"Data inserted with batch_id: {batch_id}")
 
 
 default_args = {
@@ -122,18 +96,6 @@ dag = DAG(
 
 fetch_earthquake_data = PythonOperator(
     task_id='fetch_earth_quake_data',
-    python_callable=fetch_earth_quake_data,
+    python_callable=ingest_to_bronze,
     dag=dag,
 )
-
-
-
-insert_earthquake_data = PythonOperator(
-    task_id='insert_earth_quake_data_to_postgres',
-    python_callable=insert_earthquake_data_to_postgres,
-    dag=dag,
-)
-
-
-# set dependecies
-fetch_earthquake_data >> insert_earthquake_data
