@@ -148,6 +148,11 @@ def transform_bronze_to_silver():
     """
     pg_hook.run(create_table_sql)
 
+
+    # Truncate existing data in silver table for the date to be processed
+    pg_hook.run("TRUNCATE TABLE silver.silver_earthquake;")
+    print("Truncated silver table for the date to be processed.")
+
     # Process each record
     for record in records:
         batch_id, raw_payload = record
