@@ -106,7 +106,8 @@ def transform_bronze_to_silver():
 
     if not records:
         print("No raw data found for transformation.")
-        return
+        raise AirflowSkipException(f"Already Processed for the date {yesterday_date}. Skipping Transforamtion.")
+        # return
 
     # Create silver schema if not exists
     pg_hook.run("CREATE SCHEMA IF NOT EXISTS silver;")
