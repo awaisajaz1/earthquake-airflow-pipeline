@@ -172,7 +172,6 @@ def transform_bronze_to_silver():
 
 
 
-
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -197,5 +196,11 @@ fetch_earthquake_data = PythonOperator(
     dag=dag,
 )
 
+
+siver_earthquake_data = PythonOperator(
+    task_id='fetch_earth_quake_data',
+    python_callable=transform_bronze_to_silver,
+    dag=dag,
+)
 # Set task dependencies
-fetch_earthquake_data >> transform_bronze_to_silver
+fetch_earthquake_data >> siver_earthquake_data
