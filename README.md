@@ -6,10 +6,7 @@ A comprehensive data engineering project demonstrating Apache Airflow with Docke
 
 - [Project Overview](#project-overview)
 - [Prerequisites](#prerequisites)
-- [Setup Instructions](#setup-instructions)
-- [Database Configuration](#database-configuration)
-- [Airflow Connection Setup](#airflow-connection-setup)
-- [DAG Development](#dag-development)
+- [Automated Setup Instructions](#automated-setup-instructions)
 - [Project Structure](#project-structure)
 - [Usage](#usage)
 - [Troubleshooting](#troubleshooting)
@@ -19,10 +16,10 @@ A comprehensive data engineering project demonstrating Apache Airflow with Docke
 This project demonstrates:
 - **Apache Airflow 3.1.6** for workflow orchestration
 - **Docker Compose** for containerized deployment
-- **PostgreSQL** for data storage
+- **PostgreSQL** for data storage with automated database creation
 - **pgAdmin** for database administration
 - **Python operators** for data processing
-- **ETL pipeline** for earthquake data
+- **ETL pipeline** for earthquake data with automated connection setup
 
 ## 🔧 Prerequisites
 
@@ -46,7 +43,9 @@ docker-compose --version
 docker ps
 ```
 
-## 🚀 Setup Instructions
+## 🚀 Automated Setup Instructions
+
+This setup now includes **full automation** - database creation and Airflow connections are handled automatically!
 
 ### Step 1: Download Official Docker Compose File
 
@@ -65,23 +64,13 @@ mkdir -p ./dags ./logs ./plugins ./config
 echo -e "AIRFLOW_UID=$(id -u)" > .env
 ```
 
-### Step 3: Add pgAdmin to Docker Compose
+### Step 3: Setup Files (Already Configured)
 
-The `docker-compose.yaml` has been manually modified to include pgAdmin service:
+The project includes these pre-configured files:
 
-```yaml
-pgadmin:
-  container_name: pgadmin4_container
-  image: dpage/pgadmin4
-  environment:
-    - PGADMIN_DEFAULT_EMAIL=admin@admin.com
-    - PGADMIN_DEFAULT_PASSWORD=root
-  ports:
-    - "5050:80"
-  restart: always
-  depends_on:
-    - postgres
-```
+- **`docker-compose.yaml`**: Modified with pgAdmin and automated connection setup
+- **`init-db.sql`**: Automatically creates `earth_quake_db` database and tables
+- **`dags/earth_quake_dag.py`**: Complete ETL pipeline for earthquake data
 
 ### Step 4: Start Docker Services
 
@@ -93,105 +82,49 @@ docker-compose up -d
 docker-compose ps
 ```
 
-## 🗄️ Database Configuration
+### What Happens Automatically
 
-### Step 1: Get PostgreSQL Container Details
+1. **Database Creation**: `earth_quake_db` database is created automatically
+2. **Table Creation**: Required tables are set up via `init-db.sql`
+3. **Connection Setup**: Airflow connection `earth_quake` is created automatically
+4. **Permissions**: All database permissions are granted to the airflow user
 
-```bash
-# List running containers
-docker container ls
+## 📊 DAG Features
 
-# Note down the PostgreSQL container ID (example: 0092a04c9f65)
-# Inspect container to get IP address
-docker inspect <container_id>
+### Complete ETL Pipeline
 
-# Look for IPAddress at the bottom of the output
+The DAG includes two main tasks:
+
+1. **`fetch_earth_quake_data`**: 
+   - Fetches earthquake data from USGS API
+   - Stores raw JSON data in bronze layer
+   - Creates batch tracking
+
+2. **`insert_earth_quake_data_to_postgres`**:
+   - Transforms raw data into structured format
+   - Inserts into `earth_quake_data` table
+   - Handles duplicate prevention
+
+### Data Flow
+
 ```
-
-### Step 2: Create Earthquake Database
-
-You can use either pgAdmin or any PostgreSQL client:
-
-**Option A: Using pgAdmin**
-1. Open pgAdmin at `http://localhost:5050`
-2. Login with `admin@admin.com` / `root`
-3. Connect to PostgreSQL server using container IP
-4. Create new database: `earth_quake`
-
-**Option B: Using Command Line**
-```bash
-# Connect to PostgreSQL container
-docker exec -it <postgres_container_id> psql -U airflow
-
-# Create database
-CREATE DATABASE earth_quake;
+USGS API → Bronze Layer (Raw JSON) → Structured Table (Transformed Data)
 ```
-
-## 🔗 Airflow Connection Setup
-
-### Step 1: Access Airflow UI
-
-```bash
-# Open Airflow web interface
-open http://localhost:8080
-
-# Default credentials: airflow / airflow
-```
-
-### Step 2: Create Database Connection
-
-1. Navigate to **Admin** → **Connections**
-2. Click **Add a new record**
-3. Configure connection:
-   - **Connection Id**: `earth_quake`
-   - **Connection Type**: `Postgres`
-   - **Host**: `<postgres_container_ip>`
-   - **Schema**: `earth_quake`
-   - **Login**: `airflow`
-   - **Password**: `airflow`
-   - **Port**: `5432`
-
-## 📊 DAG Development
-
-### Current DAG Structure
-
-```python
-from airflow import DAG
-from datetime import datetime, timedelta
-from airflow.operators.python import PythonOperator
-from airflow.providers.postgres.operators.postgres import PostgresOperator
-from airflow.providers.postgres.hooks.postgres import PostgresHook
-
-dag = DAG(
-    dag_id='fetch_earth_quake_api_data',
-    start_date=datetime(2026, 1, 21),
-    schedule=timedelta(days=1),
-    description='DAG for earth quakes api to store in postgres',
-    catchup=False
-)
-```
-
-### Key Components
-
-- **PythonOperator**: For data fetching and transformation
-- **PostgresOperator**: For database operations
-- **PostgresHook**: For database connections
-- **External APIs**: For earthquake data sources
 
 ## 📁 Project Structure
 
 ```
 earthquake-airflow-pipeline/
 ├── dags/
-│   └── earth_quake_dag.py          # Main DAG file
-├── logs/                           # Airflow logs
+│   └── earth_quake_dag.py          # Complete ETL DAG
+├── logs/                           # Airflow logs (auto-generated)
 ├── plugins/                        # Custom Airflow plugins
 ├── config/                         # Airflow configuration
-├── venv/                          # Python virtual environment
+├── test_zone/                      # Development and testing
 ├── .env                           # Environment variables
 ├── .gitignore                     # Git ignore rules
-├── docker-compose.yaml            # Docker services configuration
-├── test.py                        # Testing scripts
+├── docker-compose.yaml            # Docker services with automation
+├── init-db.sql                    # Database initialization script
 └── README.md                      # This file
 ```
 
@@ -212,18 +145,37 @@ earthquake-airflow-pipeline/
    - URL: `http://localhost:5050`
    - Credentials: `admin@admin.com` / `root`
 
-### Running DAGs
+### Verify Automated Setup
+
+1. **Check Database**: 
+   - Connect to pgAdmin
+   - Verify `earth_quake_db` database exists
+   - Check tables: `earth_quake_data` and `bronze.bronze_earthquake_raw`
+
+2. **Check Airflow Connection**:
+   - Go to Admin → Connections
+   - Verify `earth_quake` connection exists
+
+### Running the DAG
 
 1. Navigate to Airflow UI
 2. Find `fetch_earth_quake_api_data` DAG
 3. Toggle the DAG to **ON**
-4. Trigger manual run or wait for scheduled execution
+4. Trigger manual run or wait for scheduled execution (daily)
 
-### Monitoring
+### Monitoring Data
 
-- **Airflow UI**: Monitor DAG runs, task status, and logs
-- **pgAdmin**: Query database, view tables, and analyze data
-- **Docker logs**: `docker-compose logs <service_name>`
+**View Raw Data (Bronze Layer)**:
+```sql
+SELECT * FROM bronze.bronze_earthquake_raw ORDER BY ingestion_timestamp DESC LIMIT 5;
+```
+
+**View Processed Data**:
+```sql
+SELECT earthquake_id, place, magnitude, time, latitude, longitude 
+FROM earth_quake_data 
+ORDER BY time DESC LIMIT 10;
+```
 
 ## 🔧 Troubleshooting
 
@@ -234,7 +186,7 @@ earthquake-airflow-pipeline/
 # Check for import errors
 docker-compose exec airflow-scheduler airflow dags list-import-errors
 
-# Verify DAG syntax
+# Check DAG syntax
 docker-compose exec airflow-scheduler python -m py_compile /opt/airflow/dags/earth_quake_dag.py
 ```
 
@@ -243,17 +195,23 @@ docker-compose exec airflow-scheduler python -m py_compile /opt/airflow/dags/ear
 # Check PostgreSQL container status
 docker-compose logs postgres
 
-# Test database connection
-docker exec -it <postgres_container_id> psql -U airflow -d earth_quake
+# Verify database exists
+docker exec -it $(docker-compose ps -q postgres) psql -U airflow -l
 ```
 
-**Permission errors:**
+**Connection not created automatically:**
 ```bash
-# Fix file permissions
-sudo chown -R $USER:$USER logs/ plugins/ config/
+# Check airflow-init logs
+docker-compose logs airflow-init
 
-# Recreate .env file
-echo "AIRFLOW_UID=$(id -u)" > .env
+# Manually create connection if needed
+docker-compose exec airflow-scheduler airflow connections add 'earth_quake' \
+  --conn-type 'postgres' \
+  --conn-host 'postgres' \
+  --conn-schema 'earth_quake_db' \
+  --conn-login 'airflow' \
+  --conn-password 'airflow' \
+  --conn-port 5432
 ```
 
 ### Service URLs
@@ -270,30 +228,42 @@ echo "AIRFLOW_UID=$(id -u)" > .env
 
 ## 🛠️ Development
 
-### Adding New Tasks
-
-1. Import required operators in your DAG
-2. Define task functions
-3. Create operator instances
-4. Set task dependencies
-
-### Testing
+### Testing Individual Tasks
 
 ```bash
-# Test DAG syntax
-python -m py_compile dags/earth_quake_dag.py
+# Test fetch task
+docker-compose exec airflow-scheduler airflow tasks test fetch_earth_quake_api_data fetch_earth_quake_data 2026-01-22
 
-# Test individual tasks
-docker-compose exec airflow-scheduler airflow tasks test fetch_earth_quake_api_data <task_id> 2026-01-21
+# Test insert task
+docker-compose exec airflow-scheduler airflow tasks test fetch_earth_quake_api_data insert_earth_quake_data_to_postgres 2026-01-22
 ```
 
-## 📚 Key Learning Points
+### Viewing Logs
 
-- **Airflow 3.x Syntax**: Uses `schedule` instead of `schedule_interval`
-- **Docker Orchestration**: Multi-container application management
-- **Database Integration**: PostgreSQL with Airflow connections
-- **ETL Patterns**: Extract, Transform, Load workflows
+```bash
+# View specific task logs
+docker-compose logs airflow-scheduler
+
+# View database logs
+docker-compose logs postgres
+```
+
+## 📚 Key Features
+
+- **Full Automation**: No manual database or connection setup required
+- **Airflow 3.x Compatibility**: Uses latest syntax and features
+- **Data Layering**: Bronze (raw) and structured data layers
+- **Error Handling**: Robust error handling and duplicate prevention
 - **Monitoring**: Comprehensive logging and UI monitoring
+- **Scalable Architecture**: Easy to extend with additional data sources
+
+## 🎯 Learning Outcomes
+
+- **Modern Airflow**: Experience with Airflow 3.1.6 features
+- **Docker Orchestration**: Multi-container application management
+- **Automated DevOps**: Infrastructure as code principles
+- **ETL Best Practices**: Data pipeline design patterns
+- **Database Management**: PostgreSQL with automated setup
 
 ## 🤝 Contributing
 
@@ -311,4 +281,4 @@ This project is for educational purposes and demonstrates data engineering best 
 
 **Happy Data Engineering!** 🚀
 
-For questions or issues, please check the troubleshooting section or create an issue in the repository.
+The setup is now fully automated - just run `docker-compose up -d` and everything will be configured automatically!

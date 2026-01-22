@@ -1,4 +1,4 @@
-# Task1: Fetch amazon data, clean and transform it, load to postgres database
+# Task1: Fetch earthquake data, clean and transform it, load to postgres database
 # operators: PythonOperator, PostgresOperator
 # hooks: allows connection to postgres
 
@@ -26,37 +26,13 @@ def ingest_to_bronze():
     response.raise_for_status()
     batch_id = str(uuid.uuid4())
 
-    # now convert the responce to json data type 
+    # now convert the response to json data type 
     raw_data = response.json()
 
-    # save to postgres
+    # save to postgres using the earth_quake connection
     pg_hook = PostgresHook(postgres_conn_id='earth_quake')
-    conn = pg_hook.get_conn()
-    conn.autocommit = True
-
-    cursor = conn.cursor()
-
-    # ---- CREATE DATABASE ----
-    db_hook = PostgresHook(postgres_conn_id="earth_quake")
-    conn = db_hook.get_conn()
-    conn.autocommit = True
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute("""
-            SELECT 'CREATE DATABASE earth_quake_db'
-            WHERE NOT EXISTS (
-                SELECT FROM pg_database WHERE datname = 'earth_quake_db'
-            )
-        """)
-    except Exception as e:
-        print(f"Error creating database: {e}")
-    finally:
-        cursor.close()
-        conn.close()
-        
-    # ---- CREATE SCHEMA ----
-     # Create schema if not exists - this is safe inside transaction
+    
+    # Create schema if not exists - this is safe inside transaction
     create_schema_sql = "CREATE SCHEMA IF NOT EXISTS bronze;"
     pg_hook.run(create_schema_sql)
 
@@ -74,6 +50,78 @@ def ingest_to_bronze():
     insert_query = "INSERT INTO bronze.bronze_earthquake_raw (batch_id, raw_payload) VALUES (%s, %s)"
     pg_hook.run(insert_query, parameters=(batch_id, json.dumps(raw_data)))
     print(f"Data inserted with batch_id: {batch_id}")
+
+
+def insert_earth_quake_data_to_postgres():
+    """Transform and insert earthquake data into structured table"""
+    pg_hook = PostgresHook(postgres_conn_id='earth_quake')
+    
+    # Get the latest batch from bronze layer
+    get_latest_batch_sql = """
+        SELECT batch_id, raw_payload 
+        FROM bronze.bronze_earthquake_raw 
+        ORDER BY ingestion_timestamp DESC 
+        LIMIT 1
+    """
+    
+    result = pg_hook.get_first(get_latest_batch_sql)
+    if not result:
+        print("No data found in bronze layer")
+        return
+    
+    batch_id, raw_payload = result
+    earthquake_data = json.loads(raw_payload) if isinstance(raw_payload, str) else raw_payload
+    
+    # Create structured table if not exists
+    create_structured_table_sql = """
+        CREATE TABLE IF NOT EXISTS earth_quake_data (
+            earthquake_id VARCHAR(255) PRIMARY KEY,
+            place VARCHAR(255),
+            magnitude FLOAT,
+            time TIMESTAMP,
+            longitude FLOAT,
+            latitude FLOAT,
+            depth FLOAT,
+            batch_id VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """
+    pg_hook.run(create_structured_table_sql)
+    
+    # Transform and insert data
+    features = earthquake_data.get('features', [])
+    for feature in features:
+        properties = feature.get('properties', {})
+        geometry = feature.get('geometry', {})
+        coordinates = geometry.get('coordinates', [None, None, None])
+        
+        earthquake_id = feature.get('id')
+        place = properties.get('place')
+        magnitude = properties.get('mag')
+        time_ms = properties.get('time')
+        longitude = coordinates[0] if len(coordinates) > 0 else None
+        latitude = coordinates[1] if len(coordinates) > 1 else None
+        depth = coordinates[2] if len(coordinates) > 2 else None
+        
+        # Convert time from milliseconds to timestamp
+        time_timestamp = None
+        if time_ms:
+            time_timestamp = datetime.fromtimestamp(time_ms / 1000.0)
+        
+        # Insert data with conflict handling
+        insert_sql = """
+            INSERT INTO earth_quake_data 
+            (earthquake_id, place, magnitude, time, longitude, latitude, depth, batch_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (earthquake_id) DO NOTHING
+        """
+        
+        pg_hook.run(insert_sql, parameters=(
+            earthquake_id, place, magnitude, time_timestamp, 
+            longitude, latitude, depth, batch_id
+        ))
+    
+    print(f"Processed {len(features)} earthquake records from batch {batch_id}")
 
 
 default_args = {
@@ -99,3 +147,6 @@ fetch_earthquake_data = PythonOperator(
     python_callable=ingest_to_bronze,
     dag=dag,
 )
+
+# Set task dependencies
+fetch_earthquake_data

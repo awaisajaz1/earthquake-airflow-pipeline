@@ -96,6 +96,7 @@ services:
       POSTGRES_DB: airflow
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
@@ -300,6 +301,18 @@ services:
         echo "Files in shared volumes:"
         echo
         ls -la /opt/airflow/{logs,dags,plugins,config}
+        echo
+        echo "Creating Airflow connection for earth_quake database..."
+        echo
+        /entrypoint airflow connections add 'earth_quake' \
+          --conn-type 'postgres' \
+          --conn-host 'postgres' \
+          --conn-schema 'earth_quake_db' \
+          --conn-login 'airflow' \
+          --conn-password 'airflow' \
+          --conn-port 5432 || echo "Connection already exists or failed to create"
+        echo
+        echo "Airflow initialization completed!"
 
     # yamllint enable rule:line-length
     environment:
