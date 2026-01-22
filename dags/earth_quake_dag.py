@@ -266,7 +266,7 @@ silver_earthquake_data = PythonOperator(
 
 gold_earthquake_data = PythonOperator(
     task_id='process_earth_quake_data_to_gold',
-    python_callable=gold_earthquake_data,
+    python_callable=load_silver_to_gold,
     # trigger_rule=TriggerRule.ALL_DONE,
     dag=dag,
 )
