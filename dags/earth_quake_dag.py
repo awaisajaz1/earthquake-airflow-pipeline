@@ -10,6 +10,7 @@ import uuid
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.exceptions import AirflowSkipException
+from airflow.utils.trigger_rule import TriggerRule
 
 
 # 1 ingest in native format, Json
@@ -31,15 +32,24 @@ def ingest_to_bronze():
         );
     """)
 
-    # Check if yesterday is already extracted
-    records = pg_hook.get_records(
-        "SELECT extraction_date FROM bronze.extraction_log WHERE extraction_date = %s",
-        parameters=(yesterday_date,)
+    # Check if yesterday is already extracted and processed
+    record = pg_hook.get_first(
+    "SELECT record_date, process_date FROM bronze.bronze_earthquake_raw WHERE record_date = %s",
+    parameters=(yesterday_date,)
     )
-    if records:
-        print(f"Extraction for {yesterday_date} already done. Skipping.")
-        raise AirflowSkipException(f"Extraction for {yesterday_date} already done.")
 
+    if record:
+        extraction_date, process_date = record
+        if process_date is not None:
+            # Data extracted and processed → skip extraction
+            raise AirflowSkipException(f"Extraction and processing done for {extraction_date}, skipping extraction.")
+        else:
+            # Data extracted but not processed → skip extraction, but allow downstream to run
+            print(f"Data extracted for {extraction_date} but processing pending. Skipping extraction.")
+            raise AirflowSkipException(f"Data extracted for {extraction_date} but processing pending. Skipping extraction.")
+    
+    
+    # Make API request
     url = 'https://earthquake.usgs.gov/fdsnws/event/1/query'
     # params is a dictionary of query string parameters
     params = {  
@@ -145,6 +155,10 @@ def transform_bronze_to_silver():
             properties = feature.get('properties', {})
             geometry = feature.get('geometry', {})
             coordinates = geometry.get('coordinates', [])
+            event_time_ms = properties.get('time')
+            event_update_ms = properties.get('updated')
+            time = datetime.utcfromtimestamp(event_time_ms / 1000).strftime('%Y-%m-%d %H:%M:%S') if event_time_ms else None
+            update_time = datetime.utcfromtimestamp(event_update_ms / 1000).strftime('%Y-%m-%d %H:%M:%S') if event_time_ms else None
 
             # Insert transformed data
             insert_query = """
@@ -156,7 +170,7 @@ def transform_bronze_to_silver():
             """
             pg_hook.run(insert_query, parameters=(
                 batch_id, f"{coordinates[1]}, {coordinates[0]}", properties.get('mag'), properties.get('place'),
-                properties.get('time'), properties.get('updated'), properties.get('tz'), properties.get('url'),
+                time, update_time, properties.get('tz'), properties.get('url'),
                 properties.get('detail'), properties.get('felt'), properties.get('cdi'), properties.get('mmi'),
                 properties.get('alert'), properties.get('status'), properties.get('tsunami'), properties.get('sig'),
                 properties.get('net'), properties.get('code'), properties.get('ids'), properties.get('sources'),
@@ -191,15 +205,16 @@ dag = DAG(
 )
 
 fetch_earthquake_data = PythonOperator(
-    task_id='fetch_earth_quake_data',
+    task_id='fetch_earth_quake_data_to_bronze',
     python_callable=ingest_to_bronze,
     dag=dag,
 )
 
 
 siver_earthquake_data = PythonOperator(
-    task_id='fetch_earth_quake_data',
+    task_id='process_earth_quake_data_to_silver',
     python_callable=transform_bronze_to_silver,
+    trigger_rule=TriggerRule.ALL_DONE,
     dag=dag,
 )
 # Set task dependencies
