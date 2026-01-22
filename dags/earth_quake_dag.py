@@ -16,13 +16,10 @@ from airflow.exceptions import AirflowSkipException
 def ingest_to_bronze():
     # Get yesterday date (UTC)
     yesterday_date = datetime.utcnow().date() - timedelta(days=1)
-
     # Start time: yesterday at 00:00:00
     starttime = datetime.combine(yesterday_date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%S")
-
     # End time: yesterday at 23:59:59
     endtime = datetime.combine(yesterday_date, datetime.max.time()).strftime("%Y-%m-%dT%H:%M:%S")
-
      # save to postgres using the earth_quake connection
     pg_hook = PostgresHook(postgres_conn_id='earth_quake')
 
@@ -43,7 +40,6 @@ def ingest_to_bronze():
         print(f"Extraction for {yesterday_date} already done. Skipping.")
         raise AirflowSkipException(f"Extraction for {yesterday_date} already done.")
 
-
     url = 'https://earthquake.usgs.gov/fdsnws/event/1/query'
     # params is a dictionary of query string parameters
     params = {  
@@ -57,10 +53,8 @@ def ingest_to_bronze():
     response = requests.get(url, params=params)
     response.raise_for_status()
     batch_id = str(uuid.uuid4())
-
     # now convert the response to json data type 
     raw_data = response.json()
-
     # Create schema if not exists - this is safe inside transaction
     create_schema_sql = "CREATE SCHEMA IF NOT EXISTS bronze;"
     pg_hook.run(create_schema_sql)
