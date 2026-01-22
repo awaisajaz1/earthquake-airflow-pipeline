@@ -165,7 +165,7 @@ def transform_bronze_to_silver():
             event_time_ms = properties.get('time')
             event_update_ms = properties.get('updated')
             time = datetime.utcfromtimestamp(event_time_ms / 1000).strftime('%Y-%m-%d %H:%M:%S') if event_time_ms else None
-            update_time = datetime.utcfromtimestamp(event_update_ms / 1000).strftime('%Y-%m-%d %H:%M:%S') if event_time_ms else None
+            update_time = datetime.utcfromtimestamp(event_update_ms / 1000).strftime('%Y-%m-%d %H:%M:%S') if event_update_ms else None
 
             # Insert transformed data
             insert_query = """
@@ -218,11 +218,13 @@ fetch_earthquake_data = PythonOperator(
 )
 
 
-siver_earthquake_data = PythonOperator(
+silver_earthquake_data = PythonOperator(
     task_id='process_earth_quake_data_to_silver',
     python_callable=transform_bronze_to_silver,
     trigger_rule=TriggerRule.ALL_DONE,
     dag=dag,
 )
+
+
 # Set task dependencies
-fetch_earthquake_data >> siver_earthquake_data
+fetch_earthquake_data >> silver_earthquake_data
