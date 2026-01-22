@@ -72,7 +72,7 @@ def insert_earthquake_data_to_postgres(ti):
     postgres_hook = PostgresHook(postgres_conn_id='earth_quake')
 
     create_table = """CREATE TABLE IF NOT EXISTS earth_quake_data (
-        id VARCHAR(255) PRIMARY KEY,
+        id VARCHAR(255),
         place VARCHAR(255),
         magnitude FLOAT,
         time TIMESTAMP,
