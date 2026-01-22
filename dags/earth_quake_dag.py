@@ -65,7 +65,8 @@ def ingest_to_bronze():
             batch_id VARCHAR(255),
             raw_payload JSONB,
             ingestion_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            record_date Date
+            record_date Date,
+            process_date Date
         );
     """
     pg_hook.run(create_table_sql)
@@ -80,6 +81,96 @@ def ingest_to_bronze():
     pg_hook.run(insert_log_query, parameters=(yesterday_date,))
 
     print(f"Extraction for {yesterday_date} completed and logged.")
+
+
+# 2 Transform data from bronze to silver layer
+def transform_bronze_to_silver():
+    # save to postgres using the earth_quake connection
+    pg_hook = PostgresHook(postgres_conn_id='earth_quake')
+    # Get yesterday's date
+    yesterday_date = datetime.utcnow().date() - timedelta(days=1)
+
+    # Get raw data from bronze layer
+    select_query = "SELECT batch_id, raw_payload FROM bronze.bronze_earthquake_raw WHERE process_date is null and record_date = %s"
+    records = pg_hook.get_records(select_query, parameters=(yesterday_date,))
+
+    if not records:
+        print("No raw data found for transformation.")
+        return
+
+    # Create silver schema if not exists
+    pg_hook.run("CREATE SCHEMA IF NOT EXISTS silver;")
+
+    # Create silver table if not exists
+    create_table_sql = """
+        CREATE TABLE IF NOT EXISTS silver.silver_earthquake (
+            batch_id VARCHAR(255),
+            location VARCHAR(255),
+            magnitude FLOAT,
+            place VARCHAR(255),
+            time TIMESTAMP,
+            updated TIMESTAMP,
+            tz INTEGER,
+            url VARCHAR(255),
+            detail VARCHAR(255),
+            felt INTEGER,
+            cdi FLOAT,
+            mmi FLOAT,
+            alert VARCHAR(255),
+            status VARCHAR(255),
+            tsunami INTEGER,
+            sig INTEGER,
+            net VARCHAR(255),
+            code VARCHAR(255),
+            ids VARCHAR(255),
+            sources VARCHAR(255),
+            types VARCHAR(255),
+            nst INTEGER,
+            dmin FLOAT,
+            rms FLOAT,
+            gap FLOAT,
+            magType VARCHAR(255),
+            type VARCHAR(255),
+            title VARCHAR(255),
+            ingestion_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """
+    pg_hook.run(create_table_sql)
+
+    # Process each record
+    for record in records:
+        batch_id, raw_payload = record
+        features = raw_payload.get('features', [])
+        for feature in features:
+            properties = feature.get('properties', {})
+            geometry = feature.get('geometry', {})
+            coordinates = geometry.get('coordinates', [])
+
+            # Insert transformed data
+            insert_query = """
+                INSERT INTO silver.silver_earthquake (
+                    batch_id, location, magnitude, place, time, updated, tz, url, detail, felt, cdi, mmi, alert,
+                    status, tsunami, sig, net, code, ids, sources,
+                    types, nst, dmin, rms, gap, magType, type, title
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            pg_hook.run(insert_query, parameters=(
+                batch_id, f"{coordinates[1]}, {coordinates[0]}", properties.get('mag'), properties.get('place'),
+                properties.get('time'), properties.get('updated'), properties.get('tz'), properties.get('url'),
+                properties.get('detail'), properties.get('felt'), properties.get('cdi'), properties.get('mmi'),
+                properties.get('alert'), properties.get('status'), properties.get('tsunami'), properties.get('sig'),
+                properties.get('net'), properties.get('code'), properties.get('ids'), properties.get('sources'),
+                properties.get('types'), properties.get('nst'), properties.get('dmin'), properties.get('rms'),
+                properties.get('gap'), properties.get('magType'), properties.get('type'), properties.get('title')
+            ))
+    
+    # Mark records as processed
+    update_query = "UPDATE bronze.bronze_earthquake_raw SET process_date = CURRENT_DATE WHERE record_date = %s"
+    pg_hook.run(update_query, parameters=(yesterday_date, ))
+    print(f"Marked records as processed for date: {yesterday_date}")
+    print("Transformation from bronze to silver completed.")
+
+
 
 
 default_args = {
@@ -107,4 +198,4 @@ fetch_earthquake_data = PythonOperator(
 )
 
 # Set task dependencies
-fetch_earthquake_data
+fetch_earthquake_data >> transform_bronze_to_silver
