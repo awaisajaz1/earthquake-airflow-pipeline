@@ -9,6 +9,7 @@ import requests
 import uuid
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.exceptions import AirflowSkipException
 
 
 # 1 ingest in native format, Json
