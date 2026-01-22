@@ -191,7 +191,46 @@ def transform_bronze_to_silver():
     print(f"Marked records as processed for date: {yesterday_date}")
     print("Transformation from bronze to silver completed.")
 
+# 3 Load data from silver to gold layer
+def load_silver_to_gold():
+    # save to postgres using the earth_quake connection
+    pg_hook = PostgresHook(postgres_conn_id='earth_quake')
+    # Get yesterday's date
+    yesterday_date = datetime.utcnow().date() - timedelta(days=1)
 
+    # Create gold schema if not exists
+    pg_hook.run("CREATE SCHEMA IF NOT EXISTS gold;")
+    pg_hook.run("""
+        CREATE TABLE IF NOT EXISTS gold.earthquake_summary (
+            summary_date DATE,
+            earthquake_count INT,
+            avg_magnitude FLOAT,
+            max_magnitude FLOAT,
+            min_magnitude FLOAT,
+            significant_event_flag BOOLEAN,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
+    # Aggregate earthquake data from silver layer to gold
+    aggregate_query = """
+        INSERT INTO gold.earthquake_summary (
+            summary_date, earthquake_count, avg_magnitude, max_magnitude, min_magnitude, significant_event_flag
+        )
+        SELECT
+            %s AS summary_date,
+            COUNT(*) AS earthquake_count,
+            AVG(magnitude) AS avg_magnitude,
+            MAX(magnitude) AS max_magnitude,
+            MIN(magnitude) AS min_magnitude,
+            CASE WHEN MAX(magnitude) >= 6.0 THEN TRUE ELSE FALSE END AS significant_event_flag
+        FROM silver.silver_earthquake;
+    """
+
+    pg_hook.run(aggregate_query, parameters=(yesterday_date,))
+    print(f"Loaded aggregated data to gold layer for {yesterday_date}.")
+
+   
 
 default_args = {
     'owner': 'airflow',
@@ -225,6 +264,13 @@ silver_earthquake_data = PythonOperator(
     dag=dag,
 )
 
+gold_earthquake_data = PythonOperator(
+    task_id='process_earth_quake_data_to_gold',
+    python_callable=gold_earthquake_data,
+    # trigger_rule=TriggerRule.ALL_DONE,
+    dag=dag,
+)
+
 
 # Set task dependencies
-fetch_earthquake_data >> silver_earthquake_data
+fetch_earthquake_data >> silver_earthquake_data >> gold_earthquake_data
