@@ -212,6 +212,16 @@ def load_silver_to_gold():
         );
     """)
 
+    # Check if the data for the date is already loaded in gold layer - I am not using skipping logic just to show you the custom logic as well
+    count_query = "SELECT COUNT(*) FROM gold.earthquake_summary WHERE summary_date = %s"
+    count = pg_hook.get_first(count_query, parameters=(yesterday_date,))[0]
+    if count > 0:
+        # Data already exists, truncate before loading
+        print("Truncated gold table as data already exists for the date.")
+        return
+    else: 
+        print("No data found in gold table for the date.")    
+
     # Aggregate earthquake data from silver layer to gold
     aggregate_query = """
         INSERT INTO gold.earthquake_summary (
@@ -267,7 +277,7 @@ silver_earthquake_data = PythonOperator(
 gold_earthquake_data = PythonOperator(
     task_id='process_earth_quake_data_to_gold',
     python_callable=load_silver_to_gold,
-    # trigger_rule=TriggerRule.ALL_DONE,
+    trigger_rule=TriggerRule.ALL_DONE,
     dag=dag,
 )
 
