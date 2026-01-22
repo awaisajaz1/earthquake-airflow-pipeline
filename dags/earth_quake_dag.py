@@ -25,6 +25,22 @@ def ingest_to_bronze():
     pg_hook = PostgresHook(postgres_conn_id='earth_quake')
 
     # Ensure extraction_log table exists
+    # Create schema if not exists - this is safe inside transaction
+    create_schema_sql = "CREATE SCHEMA IF NOT EXISTS bronze;"
+    pg_hook.run(create_schema_sql)
+
+    # Create table if not exists
+    create_table_sql = """
+        CREATE TABLE IF NOT EXISTS bronze.bronze_earthquake_raw (
+            batch_id VARCHAR(255),
+            raw_payload JSONB,
+            ingestion_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            record_date Date,
+            process_date Date
+        );
+    """
+    pg_hook.run(create_table_sql)
+    # Create extraction log table
     pg_hook.run("""
         CREATE TABLE IF NOT EXISTS bronze.extraction_log (
             extraction_date DATE PRIMARY KEY,
@@ -65,21 +81,6 @@ def ingest_to_bronze():
     batch_id = str(uuid.uuid4())
     # now convert the response to json data type 
     raw_data = response.json()
-    # Create schema if not exists - this is safe inside transaction
-    create_schema_sql = "CREATE SCHEMA IF NOT EXISTS bronze;"
-    pg_hook.run(create_schema_sql)
-
-    # Create table if not exists
-    create_table_sql = """
-        CREATE TABLE IF NOT EXISTS bronze.bronze_earthquake_raw (
-            batch_id VARCHAR(255),
-            raw_payload JSONB,
-            ingestion_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            record_date Date,
-            process_date Date
-        );
-    """
-    pg_hook.run(create_table_sql)
 
     # Insert data into table
     insert_query = "INSERT INTO bronze.bronze_earthquake_raw (batch_id, raw_payload, record_date) VALUES (%s, %s, %s)"
