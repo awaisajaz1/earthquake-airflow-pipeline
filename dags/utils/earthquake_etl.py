@@ -90,10 +90,19 @@ def ingest_to_bronze():
     pg_hook.run(insert_log_query, parameters=(yesterday_date,))
 
     print(f"Extraction for {yesterday_date} completed and logged.")
+    ti.xcom_push(key="bronze", value="success")
 
 
 # 2 Transform data from bronze to silver layer
 def transform_bronze_to_silver():
+    # simple xcom example, may be complex logic in real world
+    bronze_status = ti.xcom_pull(task_ids="push_task", key="bronze")
+
+    if bronze_status != "success":
+        raise AirflowSkipException("Skipping Transformation as Bronze extraction failed.")
+    print("Starting Transformation from Bronze to Silver layer.")
+
+    
     # save to postgres using the earth_quake connection
     pg_hook = PostgresHook(postgres_conn_id='earth_quake')
     # Get yesterday's date
