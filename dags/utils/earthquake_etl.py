@@ -12,7 +12,7 @@ from airflow.exceptions import AirflowSkipException
 
 
 # 1 ingest in native format, Json
-def ingest_to_bronze():
+def ingest_to_bronze(ti):
     # Get yesterday date (UTC)
     yesterday_date = datetime.utcnow().date() - timedelta(days=1)
     # Start time: yesterday at 00:00:00
@@ -94,7 +94,7 @@ def ingest_to_bronze():
 
 
 # 2 Transform data from bronze to silver layer
-def transform_bronze_to_silver():
+def transform_bronze_to_silver(ti):
     # simple xcom example, may be complex logic in real world
     bronze_status = ti.xcom_pull(task_ids="push_task", key="bronze")
 
@@ -102,7 +102,7 @@ def transform_bronze_to_silver():
         raise AirflowSkipException("Skipping Transformation as Bronze extraction failed.")
     print("Starting Transformation from Bronze to Silver layer.")
 
-    
+
     # save to postgres using the earth_quake connection
     pg_hook = PostgresHook(postgres_conn_id='earth_quake')
     # Get yesterday's date
