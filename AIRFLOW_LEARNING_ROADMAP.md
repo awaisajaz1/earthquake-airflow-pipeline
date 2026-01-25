@@ -13,6 +13,14 @@
 - [x] Separating business logic from orchestration
 - [x] Bronze/Silver/Gold data architecture
 - [x] Skip logic and conditional processing
+- [x] **XCom (Cross-Communication)** - Basic push/pull ✅ **NEW!**
+- [x] **Inter-task data sharing** - Metadata passing ✅ **NEW!**
+- [x] **Conditional task execution** - Based on XCom data ✅ **NEW!**
+
+### 🎯 **Currently Learning**
+- [ ] Task Groups - Organize related tasks together
+- [ ] Branching - BranchPythonOperator for workflow decisions
+- [ ] Dynamic Task Generation - Create tasks programmatically
 
 ---
 
@@ -168,40 +176,64 @@
 
 ## 🎯 **Immediate Next Steps (Week by Week)**
 
-### **Week 1-2: XCom Mastery** 🔥
+### **Week 1-2: XCom Mastery** ✅ **COMPLETED**
 **Goal:** Learn inter-task communication
 
 **Tasks:**
-- [ ] Modify your earthquake pipeline to use XCom
-- [ ] Pass earthquake count between tasks
-- [ ] Implement conditional processing based on data volume
-- [ ] Create a notification task that uses XCom data
+- [x] Modify your earthquake pipeline to use XCom ✅
+- [x] Pass earthquake count between tasks ✅
+- [x] Implement conditional processing based on data volume ✅
+- [x] Create a notification task that uses XCom data ✅
 
-**Code Example:**
+**What You Accomplished:**
+- ✅ Enhanced bronze layer to push extraction metadata (batch_id, earthquake_count, status)
+- ✅ Silver layer pulls and validates bronze status before processing
+- ✅ Added processing statistics (processed_count, significant_earthquakes, max_magnitude)
+- ✅ Gold layer uses XCom data for enhanced summary creation
+- ✅ Implemented proper task_id references for XCom communication
+- ✅ Added comprehensive logging of XCom data flow
+
+**Code Example (What You Built):**
 ```python
-def extract_earthquake_data(**context):
-    # Your existing logic
-    earthquake_count = len(features)
-    # Push to XCom
-    context['task_instance'].xcom_push(key='earthquake_count', value=earthquake_count)
-    return earthquake_count
+# Bronze Layer - XCom Push
+extraction_metadata = {
+    'batch_id': batch_id,
+    'earthquake_count': earthquake_count,
+    'extraction_date': yesterday_date.isoformat(),
+    'status': 'success',
+    'api_response_size': len(json.dumps(raw_data))
+}
+ti.xcom_push(key="extraction_metadata", value=extraction_metadata)
 
-def conditional_processing(**context):
-    count = context['task_instance'].xcom_pull(key='earthquake_count', task_ids='extract_task')
-    if count > 50:
-        return 'heavy_processing_task'
-    else:
-        return 'light_processing_task'
+# Silver Layer - XCom Pull & Conditional Logic
+extraction_metadata = ti.xcom_pull(task_ids="fetch_earth_quake_data_to_bronze", key="extraction_metadata")
+if not extraction_metadata or extraction_metadata.get('status') != 'success':
+    raise AirflowSkipException("Skipping Transformation as Bronze extraction failed.")
 ```
 
-### **Week 3-4: Sensors and Branching** 🔥
+### **Week 3-4: Sensors and Branching** 🔥 **NEXT UP**
 **Goal:** Add smart waiting and conditional logic
 
-**Tasks:**
-- [ ] Add FileSensor to wait for external data files
-- [ ] Implement BranchPythonOperator for conditional workflows
-- [ ] Create HttpSensor to monitor API availability
-- [ ] Build email notifications for different scenarios
+**Priority Tasks:**
+- [ ] **BranchPythonOperator** - Implement conditional workflow paths
+  - [ ] Create earthquake severity branching (low/medium/high magnitude processing)
+  - [ ] Route to different processing tasks based on data volume
+- [ ] **FileSensor** - Wait for external data files
+  - [ ] Monitor for configuration files or external data sources
+- [ ] **HttpSensor** - Monitor API availability
+  - [ ] Check USGS API health before extraction
+- [ ] **EmailOperator** - Send notifications for different scenarios
+  - [ ] Alert on high magnitude earthquakes (≥6.0)
+  - [ ] Daily summary reports
+
+**Learning Focus:**
+- Conditional workflow routing
+- External dependency management
+- Notification patterns
+- Sensor-based triggering
+
+**Expected Outcome:**
+Your pipeline will intelligently route data based on earthquake severity and wait for external dependencies.
 
 ### **Week 5-6: Data Quality Framework** 🔥
 **Goal:** Ensure data reliability
@@ -259,8 +291,14 @@ def conditional_processing(**context):
 
 ## 🏆 **Milestones & Certifications**
 
-### **3-Month Milestone: Intermediate Airflow Developer**
-- [ ] Built 5+ production-ready DAGs
+### **1-Month Milestone: XCom Master** ✅ **ACHIEVED!**
+- [x] Built production-ready DAG with XCom communication
+- [x] Implemented inter-task data sharing and validation
+- [x] Created conditional processing based on data characteristics
+- [x] Enhanced pipeline observability with metadata tracking
+
+### **3-Month Milestone: Intermediate Airflow Developer** 🎯 **IN PROGRESS**
+- [x] Built 1+ production-ready DAGs ✅
 - [ ] Implemented comprehensive error handling
 - [ ] Created custom operators and sensors
 - [ ] Deployed to cloud environment
@@ -327,31 +365,36 @@ By the end of this roadmap, you should be able to:
 
 ### **Personal Learning Notes**
 ```
-Date: ___________
-Topic: ___________
+Date: January 25, 2026
+Topic: XCom Implementation
 Key Learnings:
-- 
-- 
-- 
+- Successfully implemented XCom push/pull between bronze, silver, and gold layers
+- Learned to pass complex metadata objects (dictionaries) via XCom
+- Implemented conditional task execution based on XCom data
+- Enhanced pipeline with processing statistics and data validation
 
 Challenges Faced:
-- 
-- 
+- Initial task_id mismatch in XCom pull (fixed: used correct task_id)
+- Understanding when to use XCom vs direct database queries
+- Structuring meaningful metadata for downstream tasks
 
 Next Steps:
-- 
-- 
+- Implement BranchPythonOperator for earthquake severity routing
+- Add FileSensor for external configuration files
+- Create email notifications based on XCom data
 ```
 
 ### **Project Ideas Log**
 ```
-Project Name: ___________
-Description: ___________
-Technologies: ___________
-Status: [ ] Planned [ ] In Progress [ ] Completed
+Project Name: Enhanced Earthquake Pipeline with XCom
+Description: Multi-layer ETL with inter-task communication and conditional processing
+Technologies: Airflow, PostgreSQL, XCom, Docker
+Status: [x] Planned [x] In Progress [x] Completed
 Lessons Learned:
-- 
-- 
+- XCom enables powerful inter-task communication patterns
+- Metadata passing improves pipeline observability and debugging
+- Conditional logic based on data characteristics enhances pipeline intelligence
+- Proper task_id management is crucial for XCom functionality
 ```
 
 ---
