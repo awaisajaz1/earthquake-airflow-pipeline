@@ -90,18 +90,37 @@ def ingest_to_bronze(ti):
     pg_hook.run(insert_log_query, parameters=(yesterday_date,))
 
     print(f"Extraction for {yesterday_date} completed and logged.")
-    ti.xcom_push(key="bronze", value="success")
+    
+    # Enhanced XCom - push useful metadata
+    earthquake_count = len(raw_data.get('features', []))
+    extraction_metadata = {
+        'batch_id': batch_id,
+        'earthquake_count': earthquake_count,
+        'extraction_date': yesterday_date.isoformat(),
+        'status': 'success',
+        'api_response_size': len(json.dumps(raw_data))
+    }
+    
+    ti.xcom_push(key="extraction_metadata", value=extraction_metadata)
+    ti.xcom_push(key="earthquake_count", value=earthquake_count)
+    ti.xcom_push(key="batch_id", value=batch_id)
+    
+    print(f"XCom pushed: {earthquake_count} earthquakes extracted in batch {batch_id}")
 
 
 # 2 Transform data from bronze to silver layer
 def transform_bronze_to_silver(ti):
-    # simple xcom example, may be complex logic in real world
-    bronze_status = ti.xcom_pull(task_ids="push_task", key="bronze")
+    # Enhanced XCom usage - pull extraction metadata
+    extraction_metadata = ti.xcom_pull(task_ids="fetch_earth_quake_data_to_bronze", key="extraction_metadata")
+    earthquake_count = ti.xcom_pull(task_ids="fetch_earth_quake_data_to_bronze", key="earthquake_count")
+    batch_id = ti.xcom_pull(task_ids="fetch_earth_quake_data_to_bronze", key="batch_id")
 
-    if bronze_status != "success":
-        raise AirflowSkipException("Skipping Transformation as Bronze extraction failed.")
-    print("Starting Transformation from Bronze to Silver layer.")
-
+    if not extraction_metadata or extraction_metadata.get('status') != 'success':
+        raise AirflowSkipException("Skipping Transformation as Bronze extraction failed or no metadata found.")
+    
+    print(f"Starting Transformation from Bronze to Silver layer.")
+    print(f"Processing batch {batch_id} with {earthquake_count} earthquakes")
+    print(f"Extraction metadata: {extraction_metadata}")
 
     # save to postgres using the earth_quake connection
     pg_hook = PostgresHook(postgres_conn_id='earth_quake')
@@ -156,14 +175,17 @@ def transform_bronze_to_silver(ti):
     """
     pg_hook.run(create_table_sql)
 
-
     # Truncate existing data in silver table for the date to be processed
     pg_hook.run("TRUNCATE TABLE silver.silver_earthquake;")
     print("Truncated silver table for the date to be processed.")
 
     # Process each record
+    processed_count = 0
+    significant_earthquakes = 0
+    max_magnitude = 0.0
+    
     for record in records:
-        batch_id, raw_payload = record
+        record_batch_id, raw_payload = record
         features = raw_payload.get('features', [])
         for feature in features:
             properties = feature.get('properties', {})
@@ -174,6 +196,13 @@ def transform_bronze_to_silver(ti):
             time = datetime.utcfromtimestamp(event_time_ms / 1000).strftime('%Y-%m-%d %H:%M:%S') if event_time_ms else None
             update_time = datetime.utcfromtimestamp(event_update_ms / 1000).strftime('%Y-%m-%d %H:%M:%S') if event_update_ms else None
 
+            # Track statistics for XCom
+            magnitude = properties.get('mag', 0.0)
+            if magnitude and magnitude > max_magnitude:
+                max_magnitude = magnitude
+            if magnitude and magnitude >= 5.0:
+                significant_earthquakes += 1
+
             # Insert transformed data
             insert_query = """
                 INSERT INTO silver.silver_earthquake (
@@ -183,7 +212,7 @@ def transform_bronze_to_silver(ti):
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             pg_hook.run(insert_query, parameters=(
-                batch_id, f"{coordinates[1]}, {coordinates[0]}", properties.get('mag'), properties.get('place'),
+                record_batch_id, f"{coordinates[1]}, {coordinates[0]}", properties.get('mag'), properties.get('place'),
                 time, update_time, properties.get('tz'), properties.get('url'),
                 properties.get('detail'), properties.get('felt'), properties.get('cdi'), properties.get('mmi'),
                 properties.get('alert'), properties.get('status'), properties.get('tsunami'), properties.get('sig'),
@@ -191,15 +220,43 @@ def transform_bronze_to_silver(ti):
                 properties.get('types'), properties.get('nst'), properties.get('dmin'), properties.get('rms'),
                 properties.get('gap'), properties.get('magType'), properties.get('type'), properties.get('title')
             ))
+            processed_count += 1
     
     # Mark records as processed
     update_query = "UPDATE bronze.bronze_earthquake_raw SET process_date = CURRENT_DATE WHERE record_date = %s"
     pg_hook.run(update_query, parameters=(yesterday_date, ))
     print(f"Marked records as processed for date: {yesterday_date}")
     print("Transformation from bronze to silver completed.")
+    
+    # Push transformation results to XCom
+    transformation_results = {
+        'processed_count': processed_count,
+        'significant_earthquakes': significant_earthquakes,
+        'max_magnitude': max_magnitude,
+        'transformation_date': yesterday_date.isoformat(),
+        'status': 'completed'
+    }
+    
+    ti.xcom_push(key="transformation_results", value=transformation_results)
+    ti.xcom_push(key="processed_count", value=processed_count)
+    ti.xcom_push(key="significant_earthquakes", value=significant_earthquakes)
+    
+    print(f"XCom pushed: Processed {processed_count} earthquakes, {significant_earthquakes} significant (≥5.0), max magnitude: {max_magnitude}")
 
 # 3 Load data from silver to gold layer
-def load_silver_to_gold():
+def load_silver_to_gold(ti):
+    # Pull transformation results from XCom
+    transformation_results = ti.xcom_pull(task_ids="process_earth_quake_data_to_silver", key="transformation_results")
+    processed_count = ti.xcom_pull(task_ids="process_earth_quake_data_to_silver", key="processed_count")
+    significant_earthquakes = ti.xcom_pull(task_ids="process_earth_quake_data_to_silver", key="significant_earthquakes")
+    
+    print(f"Gold layer processing - Received from XCom: {processed_count} processed earthquakes")
+    if not transformation_results or transformation_results.get('status') != 'completed':
+        print("There is nothing to process in gold layer!, the silver either wwnt into error or there were mo data from the source system")
+        raise AirflowSkipException(f"Skipping Gold Layer Process.")
+    else:
+        print(f"Transformation results: {transformation_results}")
+    
     # save to postgres using the earth_quake connection
     pg_hook = PostgresHook(postgres_conn_id='earth_quake')
     # Get yesterday's date
@@ -215,6 +272,7 @@ def load_silver_to_gold():
             max_magnitude FLOAT,
             min_magnitude FLOAT,
             significant_event_flag BOOLEAN,
+            significant_earthquake_count INT,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
@@ -224,15 +282,16 @@ def load_silver_to_gold():
     count = pg_hook.get_first(count_query, parameters=(yesterday_date,))[0]
     if count > 0:
         # Data already exists, truncate before loading
-        print("Truncated gold table as data already exists for the date.")
+        print("Data already exists in gold table for the date - skipping.")
         return
     else: 
-        print("No data found in gold table for the date.")    
+        print("No data found in gold table for the date - proceeding with aggregation.")    
 
     # Aggregate earthquake data from silver layer to gold
     aggregate_query = """
         INSERT INTO gold.earthquake_summary (
-            summary_date, earthquake_count, avg_magnitude, max_magnitude, min_magnitude, significant_event_flag
+            summary_date, earthquake_count, avg_magnitude, max_magnitude, min_magnitude, 
+            significant_event_flag, significant_earthquake_count
         )
         SELECT
             %s AS summary_date,
@@ -240,9 +299,23 @@ def load_silver_to_gold():
             AVG(magnitude) AS avg_magnitude,
             MAX(magnitude) AS max_magnitude,
             MIN(magnitude) AS min_magnitude,
-            CASE WHEN MAX(magnitude) >= 6.0 THEN TRUE ELSE FALSE END AS significant_event_flag
+            CASE WHEN MAX(magnitude) >= 6.0 THEN TRUE ELSE FALSE END AS significant_event_flag,
+            %s AS significant_earthquake_count
         FROM silver.silver_earthquake;
     """
 
-    pg_hook.run(aggregate_query, parameters=(yesterday_date,))
+    pg_hook.run(aggregate_query, parameters=(yesterday_date, significant_earthquakes or 0))
+    
+    # Create final summary for XCom
+    final_summary = {
+        'summary_date': yesterday_date.isoformat(),
+        'total_earthquakes': processed_count or 0,
+        'significant_earthquakes': significant_earthquakes or 0,
+        'gold_processing_status': 'completed',
+        'pipeline_status': 'success'
+    }
+    
+    ti.xcom_push(key="final_summary", value=final_summary)
+    
     print(f"Loaded aggregated data to gold layer for {yesterday_date}.")
+    print(f"Final pipeline summary: {final_summary}")
