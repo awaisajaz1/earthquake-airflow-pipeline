@@ -319,3 +319,203 @@ def load_silver_to_gold(ti):
     
     print(f"Loaded aggregated data to gold layer for {yesterday_date}.")
     print(f"Final pipeline summary: {final_summary}")
+
+
+# ========== BRANCHING FUNCTIONS ==========
+
+def earthquake_severity_branch(**context):
+    """
+    Simple branch based on earthquake severity using XCom data
+    Routes to 2 paths: critical (≥7.0) or normal (<7.0)
+    """
+    ti = context['task_instance']
+    
+    # Pull transformation results from XCom
+    transformation_results = ti.xcom_pull(
+        task_ids="process_earth_quake_data_to_silver", 
+        key="transformation_results"
+    )
+    
+    if not transformation_results:
+        print("No transformation results found in XCom - routing to normal processing")
+        return 'normal_earthquake_processing'
+    
+    max_magnitude = transformation_results.get('max_magnitude', 0.0)
+    processed_count = transformation_results.get('processed_count', 0)
+    
+    print(f"Branching Decision Data:")
+    print(f"  - Max Magnitude: {max_magnitude}")
+    print(f"  - Total Processed: {processed_count}")
+    
+    # Simple Branching Logic: Above or Below 7.0
+    if max_magnitude >= 7.0:
+        print(f"🚨 CRITICAL: Max magnitude {max_magnitude} ≥ 7.0 - routing to critical processing")
+        return 'critical_earthquake_processing'
+    else:
+        print(f"✅ NORMAL: Max magnitude {max_magnitude} < 7.0 - routing to normal processing")
+        return 'normal_earthquake_processing'
+
+
+def critical_earthquake_processing(**context):
+    """
+    Handle critical earthquakes (magnitude ≥ 7.0)
+    - Immediate alerts
+    - Detailed analysis
+    - Emergency protocols
+    """
+    ti = context['task_instance']
+    transformation_results = ti.xcom_pull(
+        task_ids="process_earth_quake_data_to_silver", 
+        key="transformation_results"
+    )
+    
+    max_magnitude = transformation_results.get('max_magnitude', 0.0)
+    processed_count = transformation_results.get('processed_count', 0)
+    
+    print("🚨 CRITICAL EARTHQUAKE PROCESSING ACTIVATED")
+    print(f"Max Magnitude: {max_magnitude}")
+    print(f"Total Earthquakes: {processed_count}")
+    
+    # Critical processing logic
+    pg_hook = PostgresHook(postgres_conn_id='earth_quake')
+    
+    # Create critical events table
+    create_critical_table = """
+        CREATE TABLE IF NOT EXISTS gold.critical_earthquake_events (
+            event_date DATE,
+            max_magnitude FLOAT,
+            total_earthquakes INT,
+            alert_sent BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """
+    pg_hook.run(create_critical_table)
+    
+    # Insert critical event record
+    yesterday_date = datetime.utcnow().date() - timedelta(days=1)
+    insert_critical = """
+        INSERT INTO gold.critical_earthquake_events 
+        (event_date, max_magnitude, total_earthquakes)
+        VALUES (%s, %s, %s)
+    """
+    pg_hook.run(insert_critical, parameters=(yesterday_date, max_magnitude, processed_count))
+    
+    # Push critical alert data to XCom
+    critical_alert = {
+        'alert_type': 'CRITICAL',
+        'max_magnitude': max_magnitude,
+        'total_earthquakes': processed_count,
+        'alert_message': f'🚨 CRITICAL ALERT: Earthquake magnitude {max_magnitude} detected!',
+        'requires_immediate_attention': True
+    }
+    
+    ti.xcom_push(key="processing_result", value=critical_alert)
+    
+    print("✅ Critical earthquake processing completed")
+    print(f"Alert data: {critical_alert}")
+
+
+def normal_earthquake_processing(**context):
+    """
+    Handle normal earthquakes (magnitude < 7.0)
+    - Standard processing
+    - Basic logging
+    - Routine monitoring
+    """
+    ti = context['task_instance']
+    transformation_results = ti.xcom_pull(
+        task_ids="process_earth_quake_data_to_silver", 
+        key="transformation_results"
+    )
+    
+    max_magnitude = transformation_results.get('max_magnitude', 0.0) if transformation_results else 0.0
+    processed_count = transformation_results.get('processed_count', 0) if transformation_results else 0
+    
+    print("✅ NORMAL EARTHQUAKE PROCESSING ACTIVATED")
+    print(f"Max Magnitude: {max_magnitude}")
+    print(f"Total Earthquakes: {processed_count}")
+    
+    # Normal processing logic
+    pg_hook = PostgresHook(postgres_conn_id='earth_quake')
+    
+    # Create normal events log table
+    create_normal_table = """
+        CREATE TABLE IF NOT EXISTS gold.normal_earthquake_log (
+            event_date DATE,
+            max_magnitude FLOAT,
+            total_earthquakes INT,
+            processing_type VARCHAR(50) DEFAULT 'NORMAL',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """
+    pg_hook.run(create_normal_table)
+    
+    # Insert normal processing record
+    yesterday_date = datetime.utcnow().date() - timedelta(days=1)
+    insert_normal = """
+        INSERT INTO gold.normal_earthquake_log 
+        (event_date, max_magnitude, total_earthquakes)
+        VALUES (%s, %s, %s)
+    """
+    pg_hook.run(insert_normal, parameters=(yesterday_date, max_magnitude, processed_count))
+    
+    # Push normal processing data to XCom
+    normal_summary = {
+        'alert_type': 'NORMAL',
+        'max_magnitude': max_magnitude,
+        'total_earthquakes': processed_count,
+        'alert_message': f'✅ Normal processing: {processed_count} earthquakes (max: {max_magnitude})',
+        'requires_immediate_attention': False
+    }
+    
+    ti.xcom_push(key="processing_result", value=normal_summary)
+    
+    print("✅ Normal earthquake processing completed")
+    print(f"Summary: {normal_summary}")
+
+
+def final_notification_task(**context):
+    """
+    Final task that runs after branching to send appropriate notifications
+    Uses XCom data from whichever branch was executed
+    """
+    ti = context['task_instance']
+    
+    # Try to pull data from each possible branch (using same key name)
+    critical_result = ti.xcom_pull(task_ids="critical_earthquake_processing", key="processing_result")
+    normal_result = ti.xcom_pull(task_ids="normal_earthquake_processing", key="processing_result")
+    
+    print("📧 FINAL NOTIFICATION TASK")
+    
+    # Determine which branch was executed and prepare notification
+    if critical_result:
+        print("🚨 Preparing CRITICAL earthquake notification")
+        notification_data = critical_result
+        notification_data['priority'] = 'URGENT'
+        notification_data['notification_type'] = 'EMERGENCY_ALERT'
+    elif normal_result:
+        print("✅ Preparing NORMAL earthquake notification")
+        notification_data = normal_result
+        notification_data['priority'] = 'LOW'
+        notification_data['notification_type'] = 'DAILY_SUMMARY'
+    else:
+        print("❌ No branch data found - preparing default notification")
+        notification_data = {
+            'alert_type': 'UNKNOWN',
+            'alert_message': 'Earthquake processing completed but no branch data found',
+            'priority': 'LOW',
+            'notification_type': 'ERROR'
+        }
+    
+    # Add timestamp and final processing info
+    notification_data['notification_time'] = datetime.utcnow().isoformat()
+    notification_data['pipeline_status'] = 'COMPLETED'
+    
+    # Push final notification data to XCom
+    ti.xcom_push(key="final_notification", value=notification_data)
+    
+    print(f"📧 Final notification prepared:")
+    print(f"   Type: {notification_data.get('notification_type')}")
+    print(f"   Priority: {notification_data.get('priority')}")
+    print(f"   Message: {notification_data.get('alert_message')}")
+    print("✅ Pipeline completed successfully with intelligent branching!")
