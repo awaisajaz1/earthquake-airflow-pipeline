@@ -32,12 +32,12 @@
 ### 🎯 **Level 1: Core Concepts Enhancement**
 
 #### **Priority: HIGH** 🔥
-- [ ] **XCom (Cross-Communication)** - Pass data between tasks
-  - [ ] Basic XCom push/pull
+- [x] **XCom (Cross-Communication)** - Pass data between tasks
+  - [x] Basic XCom push/pull ✅ **COMPLETED**
   - [ ] Custom XCom backends
   - [ ] XCom with complex data types
 - [ ] **Task Groups** - Organize related tasks together
-- [ ] **Branching** - Conditional task execution (BranchPythonOperator)
+- [x] **Branching** - Conditional task execution (BranchPythonOperator) ✅ **COMPLETED**
 - [ ] **Dynamic Task Generation** - Create tasks programmatically
 
 #### **Estimated Time:** 2-3 weeks
@@ -214,29 +214,79 @@ if not extraction_metadata or extraction_metadata.get('status') != 'success':
     raise AirflowSkipException("Skipping Transformation as Bronze extraction failed.")
 ```
 
-### **Week 3-4: Sensors and Branching** 🔥 **NEXT UP**
+### **Week 3-4: Sensors and Branching** ✅ **COMPLETED**
 **Goal:** Add smart waiting and conditional logic
 
-**Priority Tasks:**
-- [ ] **BranchPythonOperator** - Implement conditional workflow paths
-  - [ ] Create earthquake severity branching (low/medium/high magnitude processing)
-  - [ ] Route to different processing tasks based on data volume
+**Tasks:**
+- [x] **BranchPythonOperator** - Implement conditional workflow paths ✅
+  - [x] Create earthquake severity branching (critical ≥7.0 vs normal <7.0) ✅
+  - [x] Route to different processing tasks based on magnitude data ✅
 - [ ] **FileSensor** - Wait for external data files
   - [ ] Monitor for configuration files or external data sources
 - [ ] **HttpSensor** - Monitor API availability
   - [ ] Check USGS API health before extraction
 - [ ] **EmailOperator** - Send notifications for different scenarios
-  - [ ] Alert on high magnitude earthquakes (≥6.0)
+  - [ ] Alert on high magnitude earthquakes (≥7.0)
   - [ ] Daily summary reports
 
+**What You Accomplished:**
+- ✅ Implemented 2-branch conditional workflow (Critical vs Normal)
+- ✅ Created intelligent routing based on earthquake magnitude from XCom data
+- ✅ Built separate processing logic for critical (≥7.0) and normal (<7.0) earthquakes
+- ✅ Added specialized database tables for each branch (critical_earthquake_events, normal_earthquake_log)
+- ✅ Implemented final notification task that consolidates results from either branch
+- ✅ Used proper trigger rules (NONE_FAILED_MIN_ONE_SUCCESS) for branch joining
+
+**Code Example (What You Built):**
+```python
+# Branching Decision
+def earthquake_severity_branch(**context):
+    max_magnitude = ti.xcom_pull(task_ids="process_earth_quake_data_to_silver", 
+                                key="transformation_results").get('max_magnitude', 0.0)
+    if max_magnitude >= 7.0:
+        return 'critical_earthquake_processing'  # 🚨 Emergency path
+    else:
+        return 'normal_earthquake_processing'    # ✅ Standard path
+
+# DAG Structure with Branching
+earthquake_branch = BranchPythonOperator(
+    task_id='earthquake_severity_branch',
+    python_callable=earthquake_severity_branch
+)
+earthquake_branch >> [critical_processing, normal_processing] >> final_notification
+```
+
+**Learning Focus Achieved:**
+- ✅ Conditional workflow routing
+- ✅ XCom-based decision making
+- ✅ Branch-specific processing logic
+- ✅ Proper trigger rule usage for joining branches
+
+### **Week 5-6: Sensors and Notifications** 🔥 **NEXT UP**
+**Goal:** Add external dependency monitoring and notification system
+
+**Priority Tasks:**
+- [ ] **EmailOperator** - Send notifications for different scenarios
+  - [ ] Critical earthquake alerts (≥7.0 magnitude)
+  - [ ] Daily summary reports with pipeline statistics
+  - [ ] Failure notifications
+- [ ] **HttpSensor** - Monitor API availability
+  - [ ] Check USGS API health before extraction
+  - [ ] Implement retry logic for API failures
+- [ ] **FileSensor** - Wait for external data files
+  - [ ] Monitor for configuration files or external data sources
+- [ ] **Task Groups** - Organize related tasks together
+  - [ ] Group bronze/silver/gold tasks logically
+  - [ ] Group branching tasks into processing groups
+
 **Learning Focus:**
-- Conditional workflow routing
 - External dependency management
-- Notification patterns
-- Sensor-based triggering
+- Notification patterns and email integration
+- Sensor-based triggering and monitoring
+- Task organization and grouping
 
 **Expected Outcome:**
-Your pipeline will intelligently route data based on earthquake severity and wait for external dependencies.
+Your pipeline will send intelligent notifications and wait for external dependencies before processing.
 
 ### **Week 5-6: Data Quality Framework** 🔥
 **Goal:** Ensure data reliability
@@ -294,17 +344,20 @@ Your pipeline will intelligently route data based on earthquake severity and wai
 
 ## 🏆 **Milestones & Certifications**
 
-### **1-Month Milestone: XCom Master** ✅ **ACHIEVED!**
-- [x] Built production-ready DAG with XCom communication
-- [x] Implemented inter-task data sharing and validation
-- [x] Created conditional processing based on data characteristics
-- [x] Enhanced pipeline observability with metadata tracking
+### **1-Month Milestone: XCom & Branching Master** ✅ **ACHIEVED!**
+- [x] Built production-ready DAG with XCom communication ✅
+- [x] Implemented inter-task data sharing and validation ✅
+- [x] Created conditional processing based on data characteristics ✅
+- [x] Enhanced pipeline observability with metadata tracking ✅
+- [x] **Implemented intelligent branching with BranchPythonOperator** ✅ **NEW!**
+- [x] **Created severity-based workflow routing (Critical vs Normal)** ✅ **NEW!**
+- [x] **Built branch-specific processing logic and database tables** ✅ **NEW!**
 
-### **3-Month Milestone: Intermediate Airflow Developer** 🎯 **IN PROGRESS**
-- [x] Built 1+ production-ready DAGs ✅
-- [ ] Implemented comprehensive error handling
-- [ ] Created custom operators and sensors
-- [ ] Deployed to cloud environment
+### **2-Month Milestone: Sensors & Notifications Expert** 🎯 **IN PROGRESS**
+- [x] Built 1+ production-ready DAGs with branching ✅
+- [ ] Implemented comprehensive notification system
+- [ ] Created sensor-based dependency monitoring
+- [ ] Added external API health checks
 
 ### **6-Month Milestone: Advanced Airflow Engineer**
 - [ ] Designed enterprise-scale data architecture
@@ -368,36 +421,48 @@ By the end of this roadmap, you should be able to:
 
 ### **Personal Learning Notes**
 ```
-Date: January 25, 2026
-Topic: XCom Implementation
+Date: January 26, 2026
+Topic: BranchPythonOperator Implementation
 Key Learnings:
-- Successfully implemented XCom push/pull between bronze, silver, and gold layers
-- Learned to pass complex metadata objects (dictionaries) via XCom
-- Implemented conditional task execution based on XCom data
-- Enhanced pipeline with processing statistics and data validation
+- Successfully implemented conditional workflow routing with BranchPythonOperator
+- Learned to create intelligent branching based on XCom data (earthquake magnitude)
+- Built separate processing paths for critical (≥7.0) and normal (<7.0) earthquakes
+- Implemented proper trigger rules for joining branches (NONE_FAILED_MIN_ONE_SUCCESS)
+- Created branch-specific database tables and processing logic
 
 Challenges Faced:
-- Initial task_id mismatch in XCom pull (fixed: used correct task_id)
-- Understanding when to use XCom vs direct database queries
-- Structuring meaningful metadata for downstream tasks
+- Understanding trigger rules for branch joining
+- Designing clean 2-branch logic vs complex multi-branch
+- Ensuring XCom data flows correctly between branching tasks
+- Structuring branch-specific processing functions
 
 Next Steps:
-- Implement BranchPythonOperator for earthquake severity routing
-- Add FileSensor for external configuration files
-- Create email notifications based on XCom data
+- Implement EmailOperator for critical earthquake alerts
+- Add HttpSensor for API health monitoring
+- Create Task Groups to organize pipeline structure
+- Build comprehensive notification system
+
+Previous Learning:
+Date: January 25, 2026 - XCom Implementation (COMPLETED)
 ```
 
 ### **Project Ideas Log**
 ```
-Project Name: Enhanced Earthquake Pipeline with XCom
-Description: Multi-layer ETL with inter-task communication and conditional processing
-Technologies: Airflow, PostgreSQL, XCom, Docker
+Project Name: Intelligent Earthquake Pipeline with Branching
+Description: Multi-layer ETL with conditional workflow routing based on earthquake severity
+Technologies: Airflow, PostgreSQL, XCom, BranchPythonOperator, Docker
 Status: [x] Planned [x] In Progress [x] Completed
 Lessons Learned:
-- XCom enables powerful inter-task communication patterns
-- Metadata passing improves pipeline observability and debugging
-- Conditional logic based on data characteristics enhances pipeline intelligence
-- Proper task_id management is crucial for XCom functionality
+- BranchPythonOperator enables powerful conditional workflow patterns
+- Simple 2-branch logic is often more maintainable than complex multi-branch
+- Proper trigger rules are crucial for joining branches back together
+- Branch-specific processing allows for specialized handling of different data scenarios
+- XCom data can drive intelligent routing decisions in real-time
+
+Next Project Ideas:
+- Email notification system with severity-based alerts
+- API health monitoring with HttpSensor
+- Task Groups for better pipeline organization
 ```
 
 ---
