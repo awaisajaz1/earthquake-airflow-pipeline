@@ -57,7 +57,7 @@ def ingest_to_bronze(ti):
         if process_date is not None:
             # Data extracted and processed → skip extraction
             raise AirflowSkipException(f"Extraction and processing done for {extraction_date}, skipping extraction.")
-        else:
+        elif extraction_date is not None and process_date is None:
             # Data extracted but not processed → skip extraction, but allow downstream to run
             print(f"Data extracted for {extraction_date} but processing pending. Skipping extraction.")
             raise AirflowSkipException(f"Data extracted for {extraction_date} but processing pending. Skipping extraction.")
