@@ -21,11 +21,22 @@
 - [x] **Simple branching patterns** - Random decision making ✅ **NEW!**
 - [x] **Airflow 3.x compatibility** - Modern syntax and operators ✅ **NEW!**
 
-### 🎯 **Currently Learning**
-- [ ] Task Groups - Organize related tasks together
-- [ ] EmailOperator - Send notifications and alerts
-- [ ] FileSensor - Wait for external data files
-- [ ] HttpSensor - Monitor API availability
+### 🎯 **Currently Learning - Data Engineering Focus**
+- [ ] **EmailOperator** - Data pipeline notifications and alerts
+  - [ ] Critical data quality alerts
+  - [ ] ETL failure notifications
+  - [ ] Daily data processing summaries
+- [ ] **FileSensor** - Wait for data files and dependencies
+  - [ ] Monitor for incoming data files
+  - [ ] Wait for upstream system data drops
+  - [ ] Configuration file monitoring
+- [ ] **HttpSensor** - Monitor data APIs and services
+  - [ ] Check data source API health before extraction
+  - [ ] Monitor external data service availability
+- [ ] **Task Groups** - Organize data pipeline stages
+  - [ ] Group ETL stages (Extract, Transform, Load)
+  - [ ] Organize data quality checks
+  - [ ] Structure multi-source data ingestion
 
 ---
 
@@ -291,31 +302,37 @@ dag = DAG(
 - ✅ Airflow 3.x compatibility and modern syntax
 - ✅ Debugging and fixing import/syntax errors
 
-### **Week 5-6: Sensors and Notifications** 🔥 **NEXT UP**
-**Goal:** Add external dependency monitoring and notification system
+### **Week 5-6: Sensors and Notifications** 🔥 **NEXT UP - Data Engineering Focus**
+**Goal:** Add data pipeline monitoring, notifications, and dependency management
 
-**Priority Tasks:**
-- [ ] **EmailOperator** - Send notifications for different scenarios
-  - [ ] Critical earthquake alerts (≥7.0 magnitude)
-  - [ ] Daily summary reports with pipeline statistics
-  - [ ] Failure notifications
-- [ ] **HttpSensor** - Monitor API availability
-  - [ ] Check USGS API health before extraction
-  - [ ] Implement retry logic for API failures
-- [ ] **FileSensor** - Wait for external data files
-  - [ ] Monitor for configuration files or external data sources
-- [ ] **Task Groups** - Organize related tasks together
-  - [ ] Group bronze/silver/gold tasks logically
-  - [ ] Group branching tasks into processing groups
+**Priority Tasks - Data Engineering Applications:**
+- [ ] **EmailOperator** - Data pipeline notifications
+  - [ ] **Critical data alerts**: Notify when earthquake magnitude ≥7.0 (data anomaly detection)
+  - [ ] **ETL failure notifications**: Alert on pipeline failures with error details
+  - [ ] **Daily data summaries**: Send processing statistics and data quality metrics
+  - [ ] **Data quality alerts**: Notify when row counts, null values, or schema changes detected
+- [ ] **HttpSensor** - Data source monitoring
+  - [ ] **API health checks**: Monitor USGS API availability before data extraction
+  - [ ] **Data service monitoring**: Check if external data services are responding
+  - [ ] **Retry logic**: Implement exponential backoff for API failures
+- [ ] **FileSensor** - Data file monitoring
+  - [ ] **Incoming data files**: Wait for daily data drops from external systems
+  - [ ] **Configuration monitoring**: Watch for ETL configuration file changes
+  - [ ] **Dependency files**: Wait for reference data or lookup tables
+- [ ] **Task Groups** - Data pipeline organization
+  - [ ] **ETL stage grouping**: Organize Extract, Transform, Load phases
+  - [ ] **Data quality groups**: Group validation and quality check tasks
+  - [ ] **Multi-source ingestion**: Organize tasks by data source
 
-**Learning Focus:**
-- External dependency management
-- Notification patterns and email integration
-- Sensor-based triggering and monitoring
-- Task organization and grouping
+**Data Engineering Learning Focus:**
+- Data pipeline reliability and monitoring
+- External data dependency management
+- Data quality alerting and notifications
+- ETL workflow organization and structure
+- Production data pipeline best practices
 
 **Expected Outcome:**
-Your pipeline will send intelligent notifications and wait for external dependencies before processing.
+Your earthquake pipeline will have production-ready monitoring, alerting, and dependency management suitable for enterprise data engineering environments.
 
 ### **Week 5-6: Data Quality Framework** 🔥
 **Goal:** Ensure data reliability
@@ -346,28 +363,33 @@ Your pipeline will send intelligent notifications and wait for external dependen
 
 ### **Hands-On Project Ideas**
 
-#### **Beginner Projects** (Next 1-2 months)
-1. **Enhanced Earthquake Pipeline** - Add XCom, branching, and notifications
-2. **Multi-Source ETL** - Combine API + CSV + Database sources
-3. **Data Quality Monitor** - Automated validation and alerting system
+#### **Beginner Projects** (Next 1-2 months) - **Data Engineering Focus**
+1. **Production Earthquake Pipeline** - Add monitoring, alerting, and data quality checks
+2. **Multi-Source Data Lake ETL** - Combine API + S3 + Database sources with sensors
+3. **Data Quality Monitoring System** - Automated validation, alerting, and data profiling
+4. **Real-time Data Ingestion Pipeline** - Stream processing with dependency monitoring
 
-#### **Intermediate Projects** (Months 3-4)
-4. **E-commerce Analytics Pipeline** - Customer behavior analysis
-5. **Financial Data Warehouse** - Stock market data with SCD
-6. **IoT Data Processing** - Sensor data with real-time alerts
+#### **Intermediate Projects** (Months 3-4) - **Data Engineering Focus**
+5. **Enterprise Data Warehouse ETL** - Full ETL with SCD, data lineage, and monitoring
+6. **Financial Data Pipeline** - Stock market data with real-time alerts and quality checks
+7. **IoT Data Processing Platform** - Sensor data ingestion with anomaly detection
+8. **Customer Analytics Pipeline** - Multi-source customer data with privacy compliance
 
-#### **Advanced Projects** (Months 5-6)
-7. **ML Pipeline** - Model training, validation, and deployment
-8. **Data Lake Architecture** - Multi-format data processing
-9. **Real-time Dashboard** - Streaming data with live updates
+#### **Advanced Projects** (Months 5-6) - **Data Engineering Focus**
+9. **ML Feature Pipeline** - Feature engineering, validation, and model serving
+10. **Data Lake Architecture** - Multi-format processing with governance and lineage
+11. **Real-time Analytics Dashboard** - Streaming data with live monitoring and alerts
+12. **Enterprise Data Platform** - Complete data platform with cataloging and governance
 
-### **Practice Scenarios**
-- [ ] Handle API rate limits and exponential backoff
-- [ ] Process large CSV files in chunks
-- [ ] Implement SLA monitoring with Slack alerts
-- [ ] Create reusable task templates
-- [ ] Build cross-DAG dependencies
-- [ ] Implement data lineage tracking
+### **Practice Scenarios - Data Engineering Focus**
+- [ ] **Data Quality Monitoring**: Implement row count validation, null checks, schema drift detection
+- [ ] **ETL Failure Recovery**: Handle API rate limits, database connection failures, data corruption
+- [ ] **Multi-source Data Ingestion**: Coordinate data from APIs, files, and databases with dependencies
+- [ ] **Data Pipeline SLA Monitoring**: Set up alerts for processing time violations
+- [ ] **Incremental Data Loading**: Implement watermark-based processing and change data capture
+- [ ] **Data Lineage Tracking**: Track data flow from source to destination with metadata
+- [ ] **Cross-DAG Dependencies**: Coordinate multiple data pipelines with external triggers
+- [ ] **Data Partitioning Strategies**: Handle large datasets with date-based and hash partitioning
 
 ---
 
