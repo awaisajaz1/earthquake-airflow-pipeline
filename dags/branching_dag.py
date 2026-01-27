@@ -1,5 +1,5 @@
-from airflow import Dag
-from airflow.operators.dummy import DummyOperator
+from airflow import DAG  # ✅ Fixed: DAG (uppercase)
+from airflow.operators.empty import EmptyOperator  # ✅ Fixed: EmptyOperator for Airflow 3.x
 from airflow.operators.python import BranchPythonOperator
 import random
 
@@ -9,24 +9,21 @@ from datetime import datetime
 default_args = {
     'owner': 'airflow',
     'start_date': datetime(2023, 1, 1)
-    }
+}
 
 
 def _choose_best_model():
-
     num = random.randint(3, 7)
-
     if num >= 5:
         return 'model_B'
-
     else:
         return 'model_A'
 
 
-dag = Dag(
+dag = DAG(  # ✅ Fixed: DAG (uppercase)
     'branching_dag',
     default_args=default_args,
-    schedule_interval='@daily'
+    schedule='@daily'  # ✅ Fixed: schedule instead of schedule_interval
 )
 
 
@@ -37,11 +34,12 @@ choose_best_model = BranchPythonOperator(
 )
 
 
-model_A = DummyOperator(
+model_A = EmptyOperator(  # ✅ Fixed: EmptyOperator instead of DummyOperator
     task_id='model_A',
     dag=dag
 )
-model_B = DummyOperator(
+
+model_B = EmptyOperator(  # ✅ Fixed: EmptyOperator instead of DummyOperator
     task_id='model_B',
     dag=dag
 )
