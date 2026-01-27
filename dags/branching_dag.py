@@ -48,7 +48,7 @@ model_B = EmptyOperator(  # ✅ Fixed: EmptyOperator instead of DummyOperator
 
 final_model = EmptyOperator(  # ✅ Fixed: EmptyOperator instead of DummyOperator
     task_id='final_model',
-    trigger_rule='none_failed_or_skipped',
+    trigger_rule='none_failed_min_one_success',
     dag=dag
 )
 
