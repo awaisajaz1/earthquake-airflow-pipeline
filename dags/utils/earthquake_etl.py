@@ -48,9 +48,9 @@ def ingest_to_bronze(ti):
 
     # Check if yesterday is already extracted and processed
     record = pg_hook.get_first(
-    "SELECT record_date, process_date FROM bronze.bronze_earthquake_raw WHERE record_date = %s",
-    parameters=(yesterday_date,)
-    )
+        "SELECT record_date, process_date FROM bronze.bronze_earthquake_raw WHERE record_date = %s",
+        parameters=(yesterday_date,)
+        )
 
     if record:
         extraction_date, process_date = record
@@ -79,11 +79,16 @@ def ingest_to_bronze(ti):
     batch_id = str(uuid.uuid4())
     # now convert the response to json data type 
     raw_data = response.json()
+    status = 'success'
 
     # Insert data into table
-    insert_query = "INSERT INTO bronze.bronze_earthquake_raw (batch_id, raw_payload, record_date) VALUES (%s, %s, %s)"
-    pg_hook.run(insert_query, parameters=(batch_id, json.dumps(raw_data), yesterday_date))
-    print(f"Data inserted with batch_id: {batch_id}")
+    try:
+        insert_query = "INSERT INTO bronze.bronze_earthquake_raw (batch_id, raw_payload, record_date) VALUES (%s, %s, %s)"
+        pg_hook.run(insert_query, parameters=(batch_id, json.dumps(raw_data), yesterday_date))
+        print(f"Data inserted with batch_id: {batch_id}")
+    except Exception as e:
+        print(f"Error inserting data: {e}")
+        status = 'error'
 
     # After successful extraction, insert extraction log
     insert_log_query = "INSERT INTO bronze.extraction_log (extraction_date) VALUES (%s)"
@@ -97,7 +102,7 @@ def ingest_to_bronze(ti):
         'batch_id': batch_id,
         'earthquake_count': earthquake_count,
         'extraction_date': yesterday_date.isoformat(),
-        'status': 'success',
+        'status': status,
         'api_response_size': len(json.dumps(raw_data))
     }
     
