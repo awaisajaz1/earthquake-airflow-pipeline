@@ -16,8 +16,10 @@
 - [x] **XCom (Cross-Communication)** - Basic push/pull ✅ **COMPLETED**
 - [x] **Inter-task data sharing** - Metadata passing ✅ **COMPLETED**
 - [x] **Conditional task execution** - Based on XCom data ✅ **COMPLETED**
-- [x] **BranchPythonOperator** - Conditional workflow routing ✅ **NEW!**
-- [x] **Intelligent pipeline routing** - Earthquake severity branching ✅ **NEW!**
+- [x] **BranchPythonOperator** - Conditional workflow routing ✅ **COMPLETED**
+- [x] **Intelligent pipeline routing** - Earthquake severity branching ✅ **COMPLETED**
+- [x] **Simple branching patterns** - Random decision making ✅ **NEW!**
+- [x] **Airflow 3.x compatibility** - Modern syntax and operators ✅ **NEW!**
 
 ### 🎯 **Currently Learning**
 - [ ] Task Groups - Organize related tasks together
@@ -221,6 +223,8 @@ if not extraction_metadata or extraction_metadata.get('status') != 'success':
 - [x] **BranchPythonOperator** - Implement conditional workflow paths ✅
   - [x] Create earthquake severity branching (critical ≥7.0 vs normal <7.0) ✅
   - [x] Route to different processing tasks based on magnitude data ✅
+  - [x] Build simple random branching example for learning ✅ **NEW!**
+  - [x] Master Airflow 3.x compatibility (DAG, EmptyOperator, schedule) ✅ **NEW!**
 - [ ] **FileSensor** - Wait for external data files
   - [ ] Monitor for configuration files or external data sources
 - [ ] **HttpSensor** - Monitor API availability
@@ -230,16 +234,21 @@ if not extraction_metadata or extraction_metadata.get('status') != 'success':
   - [ ] Daily summary reports
 
 **What You Accomplished:**
-- ✅ Implemented 2-branch conditional workflow (Critical vs Normal)
+- ✅ Implemented 2-branch conditional workflow (Critical vs Normal) in earthquake pipeline
 - ✅ Created intelligent routing based on earthquake magnitude from XCom data
 - ✅ Built separate processing logic for critical (≥7.0) and normal (<7.0) earthquakes
 - ✅ Added specialized database tables for each branch (critical_earthquake_events, normal_earthquake_log)
 - ✅ Implemented final notification task that consolidates results from either branch
 - ✅ Used proper trigger rules (NONE_FAILED_MIN_ONE_SUCCESS) for branch joining
+- ✅ **Created simple branching DAG with random decision making** ✅ **NEW!**
+- ✅ **Mastered Airflow 3.x syntax and compatibility issues** ✅ **NEW!**
+- ✅ **Fixed import errors and deprecated operators** ✅ **NEW!**
 
-**Code Example (What You Built):**
+**Code Examples (What You Built):**
+
+**1. Complex Branching (Earthquake Pipeline):**
 ```python
-# Branching Decision
+# XCom-based branching with business logic
 def earthquake_severity_branch(**context):
     max_magnitude = ti.xcom_pull(task_ids="process_earth_quake_data_to_silver", 
                                 key="transformation_results").get('max_magnitude', 0.0)
@@ -247,20 +256,40 @@ def earthquake_severity_branch(**context):
         return 'critical_earthquake_processing'  # 🚨 Emergency path
     else:
         return 'normal_earthquake_processing'    # ✅ Standard path
+```
 
-# DAG Structure with Branching
-earthquake_branch = BranchPythonOperator(
-    task_id='earthquake_severity_branch',
-    python_callable=earthquake_severity_branch
+**2. Simple Branching (Learning Example):**
+```python
+# Random branching for learning
+def _choose_best_model():
+    num = random.randint(3, 7)
+    if num >= 5:
+        print(f"model B is executed with the number: {num}")
+        return 'model_B'
+    else:
+        print(f"model A is executed with the number: {num}")
+        return 'model_A'
+```
+
+**3. Airflow 3.x Compatibility:**
+```python
+# Modern Airflow 3.x syntax
+from airflow import DAG  # ✅ Uppercase DAG
+from airflow.operators.empty import EmptyOperator  # ✅ EmptyOperator not DummyOperator
+
+dag = DAG(
+    'branching_dag',
+    schedule='@daily'  # ✅ schedule not schedule_interval
 )
-earthquake_branch >> [critical_processing, normal_processing] >> final_notification
 ```
 
 **Learning Focus Achieved:**
-- ✅ Conditional workflow routing
+- ✅ Conditional workflow routing (both simple and complex)
 - ✅ XCom-based decision making
 - ✅ Branch-specific processing logic
 - ✅ Proper trigger rule usage for joining branches
+- ✅ Airflow 3.x compatibility and modern syntax
+- ✅ Debugging and fixing import/syntax errors
 
 ### **Week 5-6: Sensors and Notifications** 🔥 **NEXT UP**
 **Goal:** Add external dependency monitoring and notification system
@@ -422,19 +451,23 @@ By the end of this roadmap, you should be able to:
 ### **Personal Learning Notes**
 ```
 Date: January 26, 2026
-Topic: BranchPythonOperator Implementation
+Topic: BranchPythonOperator Mastery
 Key Learnings:
 - Successfully implemented conditional workflow routing with BranchPythonOperator
 - Learned to create intelligent branching based on XCom data (earthquake magnitude)
 - Built separate processing paths for critical (≥7.0) and normal (<7.0) earthquakes
 - Implemented proper trigger rules for joining branches (NONE_FAILED_MIN_ONE_SUCCESS)
 - Created branch-specific database tables and processing logic
+- Mastered Airflow 3.x compatibility: DAG (uppercase), EmptyOperator, schedule parameter
+- Built simple random branching example for learning fundamentals
 
 Challenges Faced:
 - Understanding trigger rules for branch joining
 - Designing clean 2-branch logic vs complex multi-branch
 - Ensuring XCom data flows correctly between branching tasks
 - Structuring branch-specific processing functions
+- Fixing Airflow 3.x compatibility issues (import errors, deprecated operators)
+- Debugging syntax errors in import statements
 
 Next Steps:
 - Implement EmailOperator for critical earthquake alerts
@@ -458,6 +491,18 @@ Lessons Learned:
 - Proper trigger rules are crucial for joining branches back together
 - Branch-specific processing allows for specialized handling of different data scenarios
 - XCom data can drive intelligent routing decisions in real-time
+- Airflow 3.x requires updated syntax and operators for compatibility
+
+Project Name: Simple Branching Learning DAG
+Description: Basic branching example with random decision making for learning fundamentals
+Technologies: Airflow 3.x, BranchPythonOperator, EmptyOperator
+Status: [x] Planned [x] In Progress [x] Completed
+Lessons Learned:
+- Random branching helps understand basic BranchPythonOperator concepts
+- Airflow 3.x compatibility requires careful attention to imports and syntax
+- EmptyOperator replaces deprecated DummyOperator
+- Print statements in branch functions help with debugging and understanding flow
+- Simple examples are valuable for mastering concepts before complex implementations
 
 Next Project Ideas:
 - Email notification system with severity-based alerts

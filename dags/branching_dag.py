@@ -46,5 +46,11 @@ model_B = EmptyOperator(  # ✅ Fixed: EmptyOperator instead of DummyOperator
     dag=dag
 )
 
+final_model = EmptyOperator(  # ✅ Fixed: EmptyOperator instead of DummyOperator
+    task_id='final_model',
+    trigger_rule='none_failed_or_skipped',
+    dag=dag
+)
 
-choose_best_model >> [model_A, model_B]
+
+choose_best_model >> [model_A, model_B] >> final_model
