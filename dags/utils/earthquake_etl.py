@@ -209,23 +209,27 @@ def transform_bronze_to_silver(ti):
                 significant_earthquakes += 1
 
             # Insert transformed data
-            insert_query = """
-                INSERT INTO silver.silver_earthquake (
-                    batch_id, location, magnitude, place, time, updated, tz, url, detail, felt, cdi, mmi, alert,
-                    status, tsunami, sig, net, code, ids, sources,
-                    types, nst, dmin, rms, gap, magType, type, title
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            pg_hook.run(insert_query, parameters=(
-                record_batch_id, f"{coordinates[1]}, {coordinates[0]}", properties.get('mag'), properties.get('place'),
-                time, update_time, properties.get('tz'), properties.get('url'),
-                properties.get('detail'), properties.get('felt'), properties.get('cdi'), properties.get('mmi'),
-                properties.get('alert'), properties.get('status'), properties.get('tsunami'), properties.get('sig'),
-                properties.get('net'), properties.get('code'), properties.get('ids'), properties.get('sources'),
-                properties.get('types'), properties.get('nst'), properties.get('dmin'), properties.get('rms'),
-                properties.get('gap'), properties.get('magType'), properties.get('type'), properties.get('title')
-            ))
-            processed_count += 1
+            try:
+                insert_query = """
+                    INSERT INTO silver.silver_earthquake (
+                        batch_id, location, magnitude, place, time, updated, tz, url, detail, felt, cdi, mmi, alert,
+                        status, tsunami, sig, net, code, ids, sources,
+                        types, nst, dmin, rms, gap, magType, type, title
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                pg_hook.run(insert_query, parameters=(
+                    record_batch_id, f"{coordinates[1]}, {coordinates[0]}", properties.get('mag'), properties.get('place'),
+                    time, update_time, properties.get('tz'), properties.get('url'),
+                    properties.get('detail'), properties.get('felt'), properties.get('cdi'), properties.get('mmi'),
+                    properties.get('alert'), properties.get('status'), properties.get('tsunami'), properties.get('sig'),
+                    properties.get('net'), properties.get('code'), properties.get('ids'), properties.get('sources'),
+                    properties.get('types'), properties.get('nst'), properties.get('dmin'), properties.get('rms'),
+                    properties.get('gap'), properties.get('magType'), properties.get('type'), properties.get('title')
+                    ))
+                processed_count += 1
+            except Exception as e:
+                print(f"Error inserting data: {e}")
+                raise
     
     # Mark records as processed
     update_query = "UPDATE bronze.bronze_earthquake_raw SET process_date = CURRENT_DATE WHERE record_date = %s"
