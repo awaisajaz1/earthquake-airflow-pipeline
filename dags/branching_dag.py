@@ -1,5 +1,5 @@
 from airflow import DAG  # ✅ Fixed: DAG (uppercase)
-from airflow.operators.empty import 
+from airflow.operators.empty import EmptyOperator  # ✅ Fixed: Added EmptyOperator
 from airflow.operators.python import BranchPythonOperator
 import random
 
