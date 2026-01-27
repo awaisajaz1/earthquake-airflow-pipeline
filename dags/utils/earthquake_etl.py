@@ -297,23 +297,27 @@ def load_silver_to_gold(ti):
         print("No data found in gold table for the date - proceeding with aggregation.")    
 
     # Aggregate earthquake data from silver layer to gold
-    aggregate_query = """
-        INSERT INTO gold.earthquake_summary (
-            summary_date, earthquake_count, avg_magnitude, max_magnitude, min_magnitude, 
-            significant_event_flag, significant_earthquake_count
-        )
-        SELECT
-            %s AS summary_date,
-            COUNT(*) AS earthquake_count,
-            AVG(magnitude) AS avg_magnitude,
-            MAX(magnitude) AS max_magnitude,
-            MIN(magnitude) AS min_magnitude,
-            CASE WHEN MAX(magnitude) >= 6.0 THEN TRUE ELSE FALSE END AS significant_event_flag,
-            %s AS significant_earthquake_count
-        FROM silver.silver_earthquake;
-    """
+    try:
+        aggregate_query = """
+            INSERT INTO gold.earthquake_summary (
+                summary_date, earthquake_count, avg_magnitude, max_magnitude, min_magnitude, 
+                significant_event_flag, significant_earthquake_count
+            )
+            SELECT
+                %s AS summary_date,
+                COUNT(*) AS earthquake_count,
+                AVG(magnitude) AS avg_magnitude,
+                MAX(magnitude) AS max_magnitude,
+                MIN(magnitude) AS min_magnitude,
+                CASE WHEN MAX(magnitude) >= 6.0 THEN TRUE ELSE FALSE END AS significant_event_flag,
+                %s AS significant_earthquake_count
+            FROM silver.silver_earthquake;
+        """
 
-    pg_hook.run(aggregate_query, parameters=(yesterday_date, significant_earthquakes or 0))
+        pg_hook.run(aggregate_query, parameters=(yesterday_date, significant_earthquakes or 0))
+    except Exception as e:
+        print(f"Error during aggregation: {e}")
+        raise
     
     # Create final summary for XCom
     final_summary = {
