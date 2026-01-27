@@ -1,5 +1,5 @@
 from airflow import DAG  # ✅ Fixed: DAG (uppercase)
-from airflow.operators.empty import EmptyOperator  # ✅ Fixed: EmptyOperator for Airflow 3.x
+from airflow.operators.empty import 
 from airflow.operators.python import BranchPythonOperator
 import random
 
@@ -15,8 +15,10 @@ default_args = {
 def _choose_best_model():
     num = random.randint(3, 7)
     if num >= 5:
+        print(f"model B is executed with the number: {num}")
         return 'model_B'
     else:
+        print(f"model A is executed with the number: {num}")
         return 'model_A'
 
 
