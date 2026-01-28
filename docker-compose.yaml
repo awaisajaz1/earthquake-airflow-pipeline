@@ -361,5 +361,64 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  # Ollama service for local LLM
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # LangChain API service for natural language database queries
+  langchain-db-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.langchain
+    container_name: langchain-db-api
+    ports:
+      - "8001:8001"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - DATABASE_URL=postgresql://airflow:airflow@postgres:5432/airflow
+      - EARTHQUAKE_DB_URL=postgresql://airflow:airflow@postgres:5432/earth_quake_db
+      - PYTHONPATH=/app
+    volumes:
+      - ./langchain_app:/app
+    depends_on:
+      - ollama
+      - postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional: Web UI for Ollama management
+  ollama-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: ollama-webui
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_SECRET_KEY=your-secret-key-here
+    volumes:
+      - ollama_webui_data:/app/backend/data
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
 volumes:
   postgres-db-volume:
+  ollama_data:
+  ollama_webui_data:
