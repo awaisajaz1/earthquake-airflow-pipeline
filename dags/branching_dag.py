@@ -93,7 +93,7 @@ def send_dynamic_email(**context):
     from airflow.utils.email import send_email
     
     send_email(
-        to=['admin@example.com'],  # Replace with actual email
+        to=['awaisajaz1@gmail.com'],  # Replace with actual email
         subject=subject,
         html_content=html_content
     )
@@ -110,7 +110,7 @@ send_dynamic_email_task = PythonOperator(
 # APPROACH 2: Static Email with comprehensive templating
 send_static_email = EmailOperator(
     task_id='send_static_email',
-    to=['admin@example.com'],  # Replace with actual email
+    to=['awaisajaz1@gmail.com'],  # Replace with actual email
     subject='Branching DAG Completed - {{ dag_run.run_id }}',  # Template in subject too!
     html_content='''
     <h3>Branching DAG Success Notification</h3>

@@ -18,8 +18,11 @@
 - [x] **Conditional task execution** - Based on XCom data ✅ **COMPLETED**
 - [x] **BranchPythonOperator** - Conditional workflow routing ✅ **COMPLETED**
 - [x] **Intelligent pipeline routing** - Earthquake severity branching ✅ **COMPLETED**
-- [x] **Simple branching patterns** - Random decision making ✅ **NEW!**
-- [x] **Airflow 3.x compatibility** - Modern syntax and operators ✅ **NEW!**
+- [x] **Simple branching patterns** - Random decision making ✅ **COMPLETED**
+- [x] **Airflow 3.x compatibility** - Modern syntax and operators ✅ **COMPLETED**
+- [x] **EmailOperator** - Basic email notifications ✅ **NEW!**
+- [x] **Airflow templating** - Dynamic email content with Jinja ✅ **NEW!**
+- [x] **Static vs Dynamic emails** - Template variables vs XCom data ✅ **NEW!**
 
 ### 🎯 **Currently Learning - Data Engineering Focus**
 - [ ] **EmailOperator** - Data pipeline notifications and alerts
