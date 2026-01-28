@@ -25,10 +25,11 @@
 - [x] **Static vs Dynamic emails** - Template variables vs XCom data ✅ **NEW!**
 
 ### 🎯 **Currently Learning - Data Engineering Focus**
-- [ ] **EmailOperator** - Data pipeline notifications and alerts
-  - [ ] Critical data quality alerts
-  - [ ] ETL failure notifications
-  - [ ] Daily data processing summaries
+- [x] **EmailOperator** - Data pipeline notifications and alerts ✅ **COMPLETED**
+  - [x] Static email notifications with Airflow templating ✅ **NEW!**
+  - [x] Dynamic email content using XCom data ✅ **NEW!**
+  - [x] HTML formatted emails with conditional styling ✅ **NEW!**
+  - [x] Understanding template variables vs runtime data ✅ **NEW!**
 - [ ] **FileSensor** - Wait for data files and dependencies
   - [ ] Monitor for incoming data files
   - [ ] Wait for upstream system data drops
@@ -48,12 +49,16 @@
 ### 🎯 **Level 1: Core Concepts Enhancement**
 
 #### **Priority: HIGH** 🔥
-- [x] **XCom (Cross-Communication)** - Pass data between tasks
+- [x] **XCom (Cross-Communication)** - Pass data between tasks ✅ **COMPLETED**
   - [x] Basic XCom push/pull ✅ **COMPLETED**
   - [ ] Custom XCom backends
   - [ ] XCom with complex data types
 - [ ] **Task Groups** - Organize related tasks together
 - [x] **Branching** - Conditional task execution (BranchPythonOperator) ✅ **COMPLETED**
+- [x] **EmailOperator** - Send notifications and alerts ✅ **NEW!**
+  - [x] Static email with Airflow templating ✅ **NEW!**
+  - [x] Dynamic email with XCom data ✅ **NEW!**
+  - [x] HTML formatting and conditional styling ✅ **NEW!**
 - [ ] **Dynamic Task Generation** - Create tasks programmatically
 
 #### **Estimated Time:** 2-3 weeks
@@ -65,7 +70,7 @@
 
 #### **Priority: HIGH** 🔥
 - [ ] **BashOperator** - Execute shell commands and scripts
-- [ ] **EmailOperator** - Send notifications and alerts
+- [x] **EmailOperator** - Send notifications and alerts ✅ **COMPLETED**
 - [ ] **FileSensor** - Wait for files to appear in filesystem
 - [ ] **HttpSensor/HttpOperator** - API monitoring and HTTP calls
 - [ ] **SqlOperator** - Direct SQL execution and queries
@@ -305,46 +310,88 @@ dag = DAG(
 - ✅ Airflow 3.x compatibility and modern syntax
 - ✅ Debugging and fixing import/syntax errors
 
-### **Week 5-6: Sensors and Notifications** 🔥 **NEXT UP - Data Engineering Focus**
+### **Week 5-6: Sensors and Notifications** ✅ **COMPLETED - EmailOperator**
 **Goal:** Add data pipeline monitoring, notifications, and dependency management
 
+**Completed Tasks - EmailOperator Mastery:**
+- [x] **EmailOperator** - Data pipeline notifications ✅ **COMPLETED**
+  - [x] **Static email notifications**: Built EmailOperator with Airflow templating ✅ **NEW!**
+  - [x] **Dynamic email content**: Created PythonOperator with XCom-based email generation ✅ **NEW!**
+  - [x] **Template vs Runtime data**: Mastered difference between `{{ dag_run.run_id }}` and XCom data ✅ **NEW!**
+  - [x] **HTML formatting**: Implemented conditional styling based on data content ✅ **NEW!**
+  - [x] **Branching integration**: Connected email notifications to branching workflow ✅ **NEW!**
+
+**Key Learning Achievements:**
+- ✅ **Airflow Templating System**: Understood how Jinja templates work in EmailOperator
+- ✅ **Template Variables**: Mastered `{{ ds }}`, `{{ dag_run.run_id }}`, `{{ dag.dag_id }}` usage
+- ✅ **Static vs Dynamic**: Learned when to use EmailOperator vs PythonOperator for emails
+- ✅ **XCom Integration**: Built dynamic email content using XCom data from branching logic
+- ✅ **HTML Email Design**: Created professional-looking emails with conditional styling
+
+**Code Examples Built:**
+
+**1. Static Email with Templating:**
+```python
+send_static_email = EmailOperator(
+    task_id='send_static_email',
+    to=['admin@example.com'],
+    subject='Branching DAG Completed - {{ dag_run.run_id }}',
+    html_content='''
+    <h3>Branching DAG Success Notification</h3>
+    <p><strong>DAG ID:</strong> {{ dag.dag_id }}</p>
+    <p><strong>Execution Date:</strong> {{ ds }}</p>
+    <p><strong>DAG Run ID:</strong> {{ dag_run.run_id }}</p>
+    ''',
+    dag=dag
+)
+```
+
+**2. Dynamic Email with XCom:**
+```python
+def send_dynamic_email(**context):
+    ti = context['task_instance']
+    chosen_model = ti.xcom_pull(task_ids='choose_best_model')  # Get XCom data
+    
+    if chosen_model == 'model_A':
+        subject = '🔵 Model A Selected - Branching DAG Success'
+        color = 'blue'
+    else:
+        subject = '🟢 Model B Selected - Branching DAG Success'
+        color = 'green'
+    
+    html_content = f'<h3 style="color: {color};">Dynamic Content Based on XCom!</h3>'
+    
+    from airflow.utils.email import send_email
+    send_email(to=['admin@example.com'], subject=subject, html_content=html_content)
+```
+
+**Understanding Achieved:**
+- **Template Processing**: How Airflow processes `{{ }}` variables at runtime
+- **Context Availability**: What variables are available in EmailOperator templates
+- **XCom Limitations**: Templates can't access XCom data (need PythonOperator for that)
+- **Email Styling**: HTML formatting and conditional styling techniques
+
+**Next Learning Focus:**
+- [ ] **FileSensor** - Data file monitoring and dependencies
+- [ ] **HttpSensor** - API health monitoring
+- [ ] **Task Groups** - Pipeline organization and structure
+
+### **Week 7-8: Sensors and Dependencies** 🔥 **NEXT UP**
+**Goal:** Add external dependency monitoring and file-based triggers
+
 **Priority Tasks - Data Engineering Applications:**
-- [ ] **EmailOperator** - Data pipeline notifications
-  - [ ] **Critical data alerts**: Notify when earthquake magnitude ≥7.0 (data anomaly detection)
-  - [ ] **ETL failure notifications**: Alert on pipeline failures with error details
-  - [ ] **Daily data summaries**: Send processing statistics and data quality metrics
-  - [ ] **Data quality alerts**: Notify when row counts, null values, or schema changes detected
-- [ ] **HttpSensor** - Data source monitoring
-  - [ ] **API health checks**: Monitor USGS API availability before data extraction
-  - [ ] **Data service monitoring**: Check if external data services are responding
-  - [ ] **Retry logic**: Implement exponential backoff for API failures
 - [ ] **FileSensor** - Data file monitoring
   - [ ] **Incoming data files**: Wait for daily data drops from external systems
   - [ ] **Configuration monitoring**: Watch for ETL configuration file changes
   - [ ] **Dependency files**: Wait for reference data or lookup tables
+- [ ] **HttpSensor** - Data source monitoring
+  - [ ] **API health checks**: Monitor USGS API availability before data extraction
+  - [ ] **Data service monitoring**: Check if external data services are responding
+  - [ ] **Retry logic**: Implement exponential backoff for API failures
 - [ ] **Task Groups** - Data pipeline organization
   - [ ] **ETL stage grouping**: Organize Extract, Transform, Load phases
   - [ ] **Data quality groups**: Group validation and quality check tasks
   - [ ] **Multi-source ingestion**: Organize tasks by data source
-
-**Data Engineering Learning Focus:**
-- Data pipeline reliability and monitoring
-- External data dependency management
-- Data quality alerting and notifications
-- ETL workflow organization and structure
-- Production data pipeline best practices
-
-**Expected Outcome:**
-Your earthquake pipeline will have production-ready monitoring, alerting, and dependency management suitable for enterprise data engineering environments.
-
-### **Week 5-6: Data Quality Framework** 🔥
-**Goal:** Ensure data reliability
-
-**Tasks:**
-- [ ] Create data validation functions
-- [ ] Implement row count checks
-- [ ] Add schema validation
-- [ ] Build data quality dashboard
 
 ### **Week 7-8: Performance Optimization** ⚡
 **Goal:** Scale your pipeline
@@ -407,9 +454,11 @@ Your earthquake pipeline will have production-ready monitoring, alerting, and de
 - [x] **Created severity-based workflow routing (Critical vs Normal)** ✅ **NEW!**
 - [x] **Built branch-specific processing logic and database tables** ✅ **NEW!**
 
-### **2-Month Milestone: Sensors & Notifications Expert** 🎯 **IN PROGRESS**
+### **2-Month Milestone: Sensors & Notifications Expert** ✅ **ACHIEVED!**
 - [x] Built 1+ production-ready DAGs with branching ✅
-- [ ] Implemented comprehensive notification system
+- [x] Implemented comprehensive email notification system ✅ **NEW!**
+- [x] Mastered Airflow templating and dynamic content generation ✅ **NEW!**
+- [x] Created both static and dynamic email approaches ✅ **NEW!**
 - [ ] Created sensor-based dependency monitoring
 - [ ] Added external API health checks
 
@@ -475,8 +524,38 @@ By the end of this roadmap, you should be able to:
 
 ### **Personal Learning Notes**
 ```
+Date: January 28, 2026
+Topic: EmailOperator Mastery
+Key Learnings:
+- Successfully implemented both static and dynamic email notifications
+- Mastered Airflow's Jinja templating system for EmailOperator
+- Learned the difference between template variables ({{ dag_run.run_id }}) and XCom data
+- Built dynamic email content using XCom data from branching workflow
+- Created HTML formatted emails with conditional styling
+- Understood when to use EmailOperator vs PythonOperator for email notifications
+
+Technical Achievements:
+- Static EmailOperator: Uses Airflow templating for basic runtime info (dag_run.run_id, ds, etc.)
+- Dynamic PythonOperator: Pulls XCom data to create customized email content
+- Template Processing: Airflow automatically processes {{ }} variables at runtime
+- HTML Styling: Conditional colors and formatting based on workflow results
+- Integration: Connected email notifications to branching workflow results
+
+Challenges Faced:
+- Understanding why EmailOperator can't access XCom data directly
+- Learning the difference between Airflow's built-in context vs custom XCom data
+- Figuring out when to use static templating vs dynamic Python functions
+- Designing clean HTML email templates with conditional styling
+- Connecting email notifications to branching workflow results
+
+Next Steps:
+- Implement FileSensor for data file monitoring
+- Add HttpSensor for API health checks before data extraction
+- Create Task Groups to organize pipeline structure
+- Build comprehensive data quality monitoring system
+
 Date: January 26, 2026
-Topic: BranchPythonOperator Mastery
+Topic: BranchPythonOperator Mastery (COMPLETED)
 Key Learnings:
 - Successfully implemented conditional workflow routing with BranchPythonOperator
 - Learned to create intelligent branching based on XCom data (earthquake magnitude)
@@ -486,27 +565,25 @@ Key Learnings:
 - Mastered Airflow 3.x compatibility: DAG (uppercase), EmptyOperator, schedule parameter
 - Built simple random branching example for learning fundamentals
 
-Challenges Faced:
-- Understanding trigger rules for branch joining
-- Designing clean 2-branch logic vs complex multi-branch
-- Ensuring XCom data flows correctly between branching tasks
-- Structuring branch-specific processing functions
-- Fixing Airflow 3.x compatibility issues (import errors, deprecated operators)
-- Debugging syntax errors in import statements
-
-Next Steps:
-- Implement EmailOperator for critical earthquake alerts
-- Add HttpSensor for API health monitoring
-- Create Task Groups to organize pipeline structure
-- Build comprehensive notification system
-
 Previous Learning:
 Date: January 25, 2026 - XCom Implementation (COMPLETED)
 ```
 
 ### **Project Ideas Log**
 ```
-Project Name: Intelligent Earthquake Pipeline with Branching
+Project Name: EmailOperator Integration with Branching DAG
+Description: Comprehensive email notification system with both static and dynamic approaches
+Technologies: Airflow EmailOperator, Jinja templating, XCom, HTML email formatting
+Status: [x] Planned [x] In Progress [x] Completed
+Lessons Learned:
+- EmailOperator uses Airflow's Jinja templating for runtime variables ({{ dag_run.run_id }})
+- Template variables are limited to Airflow's built-in context (can't access XCom data)
+- PythonOperator needed for dynamic email content using XCom data
+- HTML formatting allows for professional-looking conditional email styling
+- Static vs Dynamic: EmailOperator for standard notifications, PythonOperator for custom content
+- Integration with branching workflows enables intelligent notification routing
+
+Project Name: Intelligent Earthquake Pipeline with Branching (COMPLETED)
 Description: Multi-layer ETL with conditional workflow routing based on earthquake severity
 Technologies: Airflow, PostgreSQL, XCom, BranchPythonOperator, Docker
 Status: [x] Planned [x] In Progress [x] Completed
@@ -518,7 +595,7 @@ Lessons Learned:
 - XCom data can drive intelligent routing decisions in real-time
 - Airflow 3.x requires updated syntax and operators for compatibility
 
-Project Name: Simple Branching Learning DAG
+Project Name: Simple Branching Learning DAG (COMPLETED)
 Description: Basic branching example with random decision making for learning fundamentals
 Technologies: Airflow 3.x, BranchPythonOperator, EmptyOperator
 Status: [x] Planned [x] In Progress [x] Completed
@@ -530,9 +607,10 @@ Lessons Learned:
 - Simple examples are valuable for mastering concepts before complex implementations
 
 Next Project Ideas:
-- Email notification system with severity-based alerts
-- API health monitoring with HttpSensor
-- Task Groups for better pipeline organization
+- FileSensor implementation for data file monitoring and dependencies
+- HttpSensor for API health monitoring and retry logic
+- Task Groups for better pipeline organization and ETL stage grouping
+- Data quality monitoring system with automated validation and alerting
 ```
 
 ---
