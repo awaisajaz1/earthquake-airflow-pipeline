@@ -1,7 +1,7 @@
 from airflow import DAG
-from airflow.operators.empty import EmptyOperator
-from airflow.operators.python import BranchPythonOperator, PythonOperator
-from airflow.operators.email import EmailOperator
+from airflow.providers.standard.operators.empty import EmptyOperator
+from airflow.providers.standard.operators.python import BranchPythonOperator, PythonOperator
+from airflow.providers.smtp.operators.smtp import EmailOperator
 import random
 
 from datetime import datetime
@@ -67,12 +67,18 @@ def send_dynamic_email(**context):
     
     print(f"Sending email for chosen model: {chosen_model}")
     
-    # Dynamic email content based on chosen model
-    if chosen_model == 'model_A':
-        subject = '🔵 Model A Selected - Branching DAG Success'
+    # Handle case where XCom data might be None
+    if not chosen_model:
+        print("Warning: No model selection found in XCom, using default")
+        chosen_model = 'unknown_model'
+        subject = '⚠️ Branching DAG Completed - Model Selection Unknown'
+        model_description = 'Model selection data not found'
+        color = 'orange'
+    elif chosen_model == 'model_A':
+        subject = '� Model A Selected - Branching DAG Success'
         model_description = 'Model A was selected (number < 5)'
         color = 'blue'
-    else:
+    else:  # model_B
         subject = '🟢 Model B Selected - Branching DAG Success'
         model_description = 'Model B was selected (number >= 5)'
         color = 'green'
@@ -81,7 +87,7 @@ def send_dynamic_email(**context):
     <h3 style="color: {color};">Branching DAG Success Notification</h3>
     <p>The branching DAG has completed successfully!</p>
     <div style="background-color: #f0f0f0; padding: 10px; margin: 10px 0;">
-        <p><strong>Selected Model:</strong> {chosen_model.upper()}</p>
+        <p><strong>Selected Model:</strong> {chosen_model.upper() if chosen_model != 'unknown_model' else 'UNKNOWN'}</p>
         <p><strong>Description:</strong> {model_description}</p>
         <p><strong>Execution Date:</strong> {dag_run.execution_date}</p>
         <p><strong>DAG Run ID:</strong> {dag_run.run_id}</p>
@@ -92,13 +98,17 @@ def send_dynamic_email(**context):
     # Use Airflow's send_email function
     from airflow.utils.email import send_email
     
-    send_email(
-        to=['awaisajaz1@gmail.com'],  # Replace with actual email
-        subject=subject,
-        html_content=html_content
-    )
-    
-    print(f"✅ Dynamic email sent successfully for {chosen_model}")
+    try:
+        send_email(
+            to=['awaisajaz1@gmail.com'],  # Replace with actual email
+            subject=subject,
+            html_content=html_content
+        )
+        print(f"✅ Dynamic email sent successfully for {chosen_model}")
+    except Exception as e:
+        print(f"❌ Failed to send email: {e}")
+        # Don't raise exception to avoid task failure
+        print("Email sending failed, but task will continue")
 
 # Dynamic email task that uses XCom data
 send_dynamic_email_task = PythonOperator(
@@ -138,8 +148,8 @@ send_static_email = EmailOperator(
 )
 
 # Update dependencies - showing both approaches
-# Approach 1: Dynamic email that uses XCom data
+# Approach 1: Dynamic email that uses XCom data (runs after final_model)
 final_model >> send_dynamic_email_task
 
-# Approach 2: Static email (runs independently)
+# Approach 2: Static email (runs independently after final_model)
 final_model >> send_static_email
