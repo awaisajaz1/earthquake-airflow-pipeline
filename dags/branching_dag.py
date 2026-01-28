@@ -13,14 +13,25 @@ default_args = {
 }
 
 
-def _choose_best_model():
+def _choose_best_model(**context):
+    """Choose model with explicit XCom push for debugging"""
+    ti = context['task_instance']
+    
     num = random.randint(3, 7)
     if num >= 5:
+        result = 'model_B'
         print(f"model B is executed with the number: {num}")
-        return 'model_B'
     else:
+        result = 'model_A'
         print(f"model A is executed with the number: {num}")
-        return 'model_A'
+    
+    # Explicit XCom push for debugging
+    print(f"🔄 EXPLICITLY PUSHING TO XCOM: {result}")
+    ti.xcom_push(key='chosen_model', value=result)
+    
+    # Also return for automatic XCom push
+    print(f"🔄 RETURNING: {result}")
+    return result
 
 
 dag = DAG(  # ✅ Fixed: DAG (uppercase)
@@ -62,8 +73,36 @@ def send_dynamic_email(**context):
     ti = context['task_instance']
     dag_run = context['dag_run']
     
-    # Get which model was chosen from XCom
+    # Get which model was chosen from XCom - with better debugging
     chosen_model = ti.xcom_pull(task_ids='choose_best_model')
+    
+    # Debug XCom retrieval
+    print(f"=== XCOM DEBUG ===")
+    print(f"Chosen model from XCom: {chosen_model}")
+    print(f"XCom task_ids: choose_best_model")
+    print(f"Current task: {ti.task_id}")
+    print(f"DAG run: {dag_run.run_id}")
+    
+    # Try alternative XCom retrieval methods
+    try:
+        return_value = ti.xcom_pull(task_ids='choose_best_model', key='return_value')
+        print(f"Alternative XCom pull (return_value): {return_value}")
+        if not chosen_model and return_value:
+            chosen_model = return_value
+    except Exception as e:
+        print(f"Alternative XCom pull failed: {e}")
+    
+    # Try explicit key
+    try:
+        explicit_model = ti.xcom_pull(task_ids='choose_best_model', key='chosen_model')
+        print(f"Explicit XCom pull (chosen_model): {explicit_model}")
+        if not chosen_model and explicit_model:
+            chosen_model = explicit_model
+    except Exception as e:
+        print(f"Explicit XCom pull failed: {e}")
+    
+    print(f"Final chosen_model: {chosen_model}")
+    print(f"=== END DEBUG ===")
     
     print(f"Sending email for chosen model: {chosen_model}")
     
@@ -89,7 +128,7 @@ def send_dynamic_email(**context):
     <div style="background-color: #f0f0f0; padding: 10px; margin: 10px 0;">
         <p><strong>Selected Model:</strong> {chosen_model.upper() if chosen_model != 'unknown_model' else 'UNKNOWN'}</p>
         <p><strong>Description:</strong> {model_description}</p>
-        <p><strong>Execution Date:</strong> {dag_run.execution_date}</p>
+        <p><strong>Logical Date:</strong> {getattr(dag_run, 'logical_date', getattr(dag_run, 'execution_date', 'Unknown'))}</p>
         <p><strong>DAG Run ID:</strong> {dag_run.run_id}</p>
     </div>
     <p>Model selection and processing completed without errors.</p>
