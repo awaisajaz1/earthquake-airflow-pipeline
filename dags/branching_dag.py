@@ -107,18 +107,32 @@ send_dynamic_email_task = PythonOperator(
     dag=dag
 )
 
-# APPROACH 2: Static Email (original approach - independent)
+# APPROACH 2: Static Email with comprehensive templating
 send_static_email = EmailOperator(
     task_id='send_static_email',
     to=['admin@example.com'],  # Replace with actual email
-    subject='Branching DAG Completed Successfully',
+    subject='Branching DAG Completed - {{ dag_run.run_id }}',  # Template in subject too!
     html_content='''
     <h3>Branching DAG Success Notification</h3>
-    <p>The branching DAG has completed successfully.</p>
-    <p><strong>Execution Date:</strong> {{ ds }}</p>
-    <p><strong>DAG Run ID:</strong> {{ dag_run.run_id }}</p>
+    <p>The branching DAG has completed successfully!</p>
+    
+    <div style="background-color: #e8f5e8; padding: 15px; margin: 10px 0;">
+        <h4>Execution Details:</h4>
+        <ul>
+            <li><strong>DAG ID:</strong> {{ dag.dag_id }}</li>
+            <li><strong>Task ID:</strong> {{ task.task_id }}</li>
+            <li><strong>Execution Date:</strong> {{ ds }}</li>
+            <li><strong>Execution DateTime:</strong> {{ dag_run.execution_date }}</li>
+            <li><strong>DAG Run ID:</strong> {{ dag_run.run_id }}</li>
+            <li><strong>Run Type:</strong> {{ dag_run.run_type }}</li>
+        </ul>
+    </div>
+    
     <p>Model selection and processing completed without errors.</p>
-    <p><em>Note: This email doesn't know which model was selected</em></p>
+    <p><em>Note: This email uses Airflow templating but doesn't know which model was selected</em></p>
+    
+    <hr>
+    <small>Generated automatically by Airflow at runtime</small>
     ''',
     dag=dag
 )
