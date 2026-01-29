@@ -120,7 +120,6 @@ create_file_task = PythonOperator(
 wait_for_file = FileSensor(
     task_id='wait_for_file',
     filepath='/opt/airflow/dags/test_files/data.txt',
-    fs_conn_id='fs_default',  # Default filesystem connection
     poke_interval=10,  # Check every 10 seconds
     timeout=300,  # Timeout after 5 minutes
     dag=dag

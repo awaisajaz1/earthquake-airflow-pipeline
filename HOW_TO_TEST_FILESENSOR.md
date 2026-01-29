@@ -52,7 +52,6 @@ echo "FileSensor will detect this file!" >> dags/test_files/manual_data.txt
 wait_for_file = FileSensor(
     task_id='wait_for_file',
     filepath='/opt/airflow/dags/test_files/data.txt',  # File to monitor
-    fs_conn_id='fs_default',                           # Filesystem connection
     poke_interval=10,                                  # Check every 10 seconds
     timeout=300,                                       # Give up after 5 minutes
     dag=dag
@@ -63,7 +62,6 @@ wait_for_file = FileSensor(
 - **filepath**: Path to the file to monitor
 - **poke_interval**: How often to check (seconds)
 - **timeout**: Maximum wait time (seconds)
-- **fs_conn_id**: Filesystem connection ID
 
 ---
 

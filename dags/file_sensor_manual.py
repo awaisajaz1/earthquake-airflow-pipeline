@@ -91,7 +91,6 @@ dag = DAG(
 wait_for_manual_file = FileSensor(
     task_id='wait_for_manual_file',
     filepath='/opt/airflow/dags/test_files/manual_data.txt',
-    fs_conn_id='fs_default',
     poke_interval=15,  # Check every 15 seconds
     timeout=600,  # Timeout after 10 minutes
     dag=dag
