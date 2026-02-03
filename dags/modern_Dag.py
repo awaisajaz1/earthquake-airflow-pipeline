@@ -1,9 +1,7 @@
 from airflow.sdk import dag, task
-from airflow.operator.bash import BashOperator
-from airflow.operator.python import PythonOperator
+from datetime import datetime
 
-
-@dag(dag_id="xcom_dag_automation", schedule_interval="@daily", start_date=datetime(2023, 1, 1), catchup=False)
+@dag(dag_id="xcom_dag_automation")
 def modern_dag_automation():
 
     @task.python
